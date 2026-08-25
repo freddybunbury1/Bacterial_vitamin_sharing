@@ -1,1 +1,1 @@
-
+# Figure assets
