@@ -38,7 +38,7 @@ that does not reflect how the analysis was run.
 | --- | --- |
 | `output/ko_count_matrix.tsv` | `data/raw/genome_pipeline_nf_core/ko_count_matrix.tsv` |
 | `output/gtdbtk.bac120.summary.tsv` | `data/raw/gtdbtk/gtdbtk.bac120.summary.tsv` |
-| `output/gtdbtk_tree_231_genomes.tree` | `data/raw/gtdbtk/gtdbtk_tree_231_genomes.tree` |
+| `output/gtdbtk.bac120.study_genomes.tree` | `data/raw/gtdbtk/gtdbtk.bac120.study_genomes.tree` |
 
 The workflow documentation should also explain how assembly identifiers are
 connected to

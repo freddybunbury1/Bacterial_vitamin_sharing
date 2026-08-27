@@ -63,11 +63,11 @@ dir.create(additional_subpanel_dir, recursive = TRUE, showWarnings = FALSE)
 figure1_data_inputs <- c(
   tree = file.path(
     project_dir, "data", "processed", "gtdbtk_tree_analysis",
-    "gtdbtk_tree_231_genomes_bacillati_pseudomonadati_split_rooted_b12_complete_traits.tree"
+    "gtdbtk_bac120_study_genomes_bacillati_pseudomonadati_split_rooted_b12_complete_traits.tree"
   ),
   tip_metadata = file.path(
     project_dir, "data", "processed", "gtdbtk_tree_analysis",
-    "gtdbtk_tree_231_tip_metadata.csv"
+    "gtdbtk_bac120_study_genomes_tip_metadata.csv"
   ),
   strain_summary = file.path(
     project_dir, "data", "processed", "b12_trait_survey",
@@ -1324,7 +1324,7 @@ figure_s15_inputs <- c(
   ),
   tree = file.path(
     project_dir, "data", "processed", "gtdbtk_tree_analysis",
-    "gtdbtk_tree_231_genomes_bacillati_pseudomonadati_split_rooted_b12_complete_traits.tree"
+    "gtdbtk_bac120_study_genomes_bacillati_pseudomonadati_split_rooted_b12_complete_traits.tree"
   ),
   pyseer = file.path(
     project_dir, "data", "processed", "b12_trait_classification_analysis",

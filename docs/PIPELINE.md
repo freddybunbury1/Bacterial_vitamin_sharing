@@ -18,7 +18,7 @@ the following fixed order:
 | Analysis | Principal inputs | Principal outputs |
 | --- | --- | --- |
 | Trait survey | survey intermediates, canonical strain metadata | strain traits, GWA phenotypes, survey figure sources |
-| GTDB tree | GTDB summary/tree, strain-to-genome map, trait summary | public taxonomy, 231-tip tree, complete-trait tree, tip metadata |
+| GTDB tree | GTDB summary/tree, strain-to-genome map, trait summary | public taxonomy, study-genome tree, complete-trait tree, tip metadata |
 | Growth dynamics | growth intermediate | growth metrics and Figure S2 source |
 | Release/uptake/death | release intermediates, trait summary, GTDB taxonomy | empirical tables, uptake/release model fits, compact figure sources |
 | Trait classification | KO matrix, traits, GTDB taxonomy/tree, KEGG mapping, raw GWA summaries | matched validation results, nulls, importance, combined GWA table, compact figure sources |

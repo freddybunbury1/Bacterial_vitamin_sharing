@@ -24,6 +24,18 @@ self-contained HTML notebook under `results/compiled_figures/`.
 R Markdown requires Pandoc. Running from RStudio uses its bundled Pandoc; a
 command-line installation may need Pandoc added to `PATH`.
 
+On macOS, command-line R can use the copy bundled with RStudio by setting:
+
+```bash
+export RSTUDIO_PANDOC="/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64"
+```
+
+The path above is for Apple Silicon; on an Intel Mac, replace `aarch64` with
+`x86_64`.
+
+A clean end-to-end render took approximately 3–5 minutes on an Apple Silicon
+MacBook Pro; runtime will vary with hardware and available cores.
+
 ## R dependencies
 
 The pipeline was validated with R 4.5.1. Required CRAN packages are:

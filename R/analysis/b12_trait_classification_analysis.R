@@ -17,7 +17,7 @@ taxonomy_path <- file.path(
 )
 tree_path <- file.path(
   "data/processed/gtdbtk_tree_analysis",
-  "gtdbtk_tree_231_genomes_bacillati_pseudomonadati_split_rooted_b12_complete_traits.tree"
+  "gtdbtk_bac120_study_genomes_bacillati_pseudomonadati_split_rooted_b12_complete_traits.tree"
 )
 kegg_ko_list_path <- file.path("data/raw/annotations", "kegg_ko_list.tsv")
 raw_gwa_dir <- file.path("data/raw", "gwa")
@@ -646,9 +646,9 @@ gwa_comparison_path <- file.path(
     processed_dir, "gwa_pyseer_mixed_tree_comparison_all_traits.csv"
 )
 
-gtdbtk_tree_pruned_path <- file.path("data/processed/gtdbtk_tree_analysis", "gtdbtk_tree_231_genomes_bacillati_pseudomonadati_split_rooted_b12_complete_traits.tree")
+gtdbtk_tree_pruned_path <- file.path("data/processed/gtdbtk_tree_analysis", "gtdbtk_bac120_study_genomes_bacillati_pseudomonadati_split_rooted_b12_complete_traits.tree")
 
-gtdbtk_tip_metadata_path <- file.path("data/processed/gtdbtk_tree_analysis", "gtdbtk_tree_231_tip_metadata.csv")
+gtdbtk_tip_metadata_path <- file.path("data/processed/gtdbtk_tree_analysis", "gtdbtk_bac120_study_genomes_tip_metadata.csv")
 
 compact_order_accuracy_source_path <- file.path(figure_source_dir, "01F_classification_accuracy_random_order_block_held_out_uncolored_points_source.csv")
 

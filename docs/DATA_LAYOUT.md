@@ -26,11 +26,11 @@ Instrument-export filenames and bytes are preserved.
 
 - `data/raw/genome_pipeline_nf_core/ko_count_matrix.tsv`
 - `data/raw/gwa/`
-- `data/raw/gtdbtk/classify/gtdbtk.bac120.summary.tsv`
-- `data/raw/gtdbtk/gtdbtk.bac120.classify.tree`
+- `data/raw/gtdbtk/gtdbtk.bac120.summary.tsv`
+- `data/raw/gtdbtk/gtdbtk.bac120.study_genomes.tree`
 - `data/raw/metadata_strains/microtrait_strain_id_to_genome_filename_20260520.csv`
 
-These are the superseding 231-genome products. The older 193-genome GTDB-Tk
+These are the current study-genome products. The older 193-genome GTDB-Tk
 summary and the former `data/pre-raw/` tree are not inputs and are not included.
 
 ## KEGG acquisition exception

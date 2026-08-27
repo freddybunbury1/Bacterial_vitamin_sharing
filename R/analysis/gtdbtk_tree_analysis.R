@@ -1,12 +1,12 @@
 #!/usr/bin/env Rscript
 
 # Public GTDB-Tk taxonomy and phylogeny analysis. The GTDB-Tk summary is joined
-# to strain IDs, the supplied 231-strain tree is rooted at the best-supported
+# to strain IDs, the supplied study-genome tree is rooted at the best-supported
 # Bacillati/Pseudomonadati split, and a trait-complete tree is exported for the
 # classification and compiled-figure stages.
 
 summary_path <- file.path("data/raw/gtdbtk", "gtdbtk.bac120.summary.tsv")
-tree_path <- file.path("data/raw/gtdbtk", "gtdbtk_tree_231_genomes.tree")
+tree_path <- file.path("data/raw/gtdbtk", "gtdbtk.bac120.study_genomes.tree")
 genome_map_path <- file.path(
   "data/raw/metadata_strains",
   "microtrait_strain_id_to_genome_filename_20260520.csv"
@@ -21,14 +21,14 @@ processed_dir <- file.path("data/processed", "gtdbtk_tree_analysis")
 taxonomy_path <- file.path(taxonomy_dir, "gtdbtk_bac120_taxonomy_with_strain_id.csv")
 split_tree_path <- file.path(
   processed_dir,
-  "gtdbtk_tree_231_genomes_bacillati_pseudomonadati_split_rooted.tree"
+  "gtdbtk_bac120_study_genomes_bacillati_pseudomonadati_split_rooted.tree"
 )
 complete_tree_path <- file.path(
   processed_dir,
-  "gtdbtk_tree_231_genomes_bacillati_pseudomonadati_split_rooted_b12_complete_traits.tree"
+  "gtdbtk_bac120_study_genomes_bacillati_pseudomonadati_split_rooted_b12_complete_traits.tree"
 )
-tip_metadata_path <- file.path(processed_dir, "gtdbtk_tree_231_tip_metadata.csv")
-rooting_summary_path <- file.path(processed_dir, "gtdbtk_tree_231_rooting_summary.csv")
+tip_metadata_path <- file.path(processed_dir, "gtdbtk_bac120_study_genomes_tip_metadata.csv")
+rooting_summary_path <- file.path(processed_dir, "gtdbtk_bac120_study_genomes_rooting_summary.csv")
 
 required_packages <- c("ape", "dplyr", "phytools", "stringr", "tibble")
 missing_packages <- required_packages[
@@ -197,7 +197,7 @@ utils::write.csv(taxonomy, taxonomy_path, row.names = FALSE, na = "")
 
 tree <- ape::read.tree(tree_path)
 tree$tip.label[tree$tip.label == "KC61126"] <- "KC611216"
-if (anyDuplicated(tree$tip.label)) stop("The 231-genome tree has duplicated tip labels.")
+if (anyDuplicated(tree$tip.label)) stop("The study-genome tree has duplicated tip labels.")
 
 trait_columns <- c(
   "strain_id", "total_b12_gm", "total_b12_per_od_gm", "filtrate_b12_gm",

@@ -8,7 +8,7 @@
 - `growth_dynamics_b12_methionine_analysis.R`: models blank OD, summarizes
   growth curves, and exports the Figure S2 comparison.
 - `gtdbtk_tree_analysis.R`: parses GTDB taxonomy and builds the split-rooted
-  231-genome and complete-trait trees.
+  study-genome and complete-trait trees.
 - `b12_trait_classification_analysis.R`: constructs the KO/phenotype input,
   aggregates GWA results, runs single-stage order-block and matched random-fold
   validation, null simulations, and feature-importance summaries.
