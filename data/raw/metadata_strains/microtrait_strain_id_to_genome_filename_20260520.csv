@@ -1,0 +1,305 @@
+strain_id,fna_filename,fastq_filename,genome_source
+sif0532,GCF_014851745.1_ASM1485174v1_genomic.fna,,ncbi
+sif1732,GCF_014851605.1_ASM1485160v1_genomic.fna,,ncbi
+sif0617,GCF_014851665.1_ASM1485166v1_genomic.fna,,ncbi
+sif2431,GCF_014851465.1_ASM1485146v1_genomic.fna,,ncbi
+sid0901,GCF_019218915.1_ASM1921891v1_genomic.fna,,ncbi
+sif2331,GCF_014851495.1_ASM1485149v1_genomic.fna,,ncbi
+sif2233,GCF_014851475.1_ASM1485147v1_genomic.fna,,ncbi
+sic0104,GCF_019219095.1_ASM1921909v1_genomic.fna,,ncbi
+sif0613,GCF_019218865.1_ASM1921886v1_genomic.fna,,ncbi
+sif0632,GCF_019218805.1_ASM1921880v1_genomic.fna,,ncbi
+sif0715,GCF_019218825.1_ASM1921882v1_genomic.fna,,ncbi
+sif0732,GCF_019218785.1_ASM1921878v1_genomic.fna,,ncbi
+sif1233,GCF_019218755.1_ASM1921875v1_genomic.fna,,ncbi
+sia0103,GCF_019219295.1_ASM1921929v1_genomic.fna,,ncbi
+sif0611,GCF_019218845.1_ASM1921884v1_genomic.fna,,ncbi
+sif2416,GCF_019218665.1_ASM1921866v1_genomic.fna,,ncbi
+sif2433,GCF_019218705.1_ASM1921870v1_genomic.fna,,ncbi
+sif0711,GCF_014851585.1_ASM1485158v1_genomic.fna,,ncbi
+sid0103,GCF_019219025.1_ASM1921902v1_genomic.fna,,ncbi
+sie2117,GCF_019218885.1_ASM1921888v1_genomic.fna,,ncbi
+sic0303,GCF_025685725.1_ASM2568572v1_genomic.fna,,ncbi
+sic0106,GCF_019219075.1_ASM1921907v1_genomic.fna,,ncbi
+sid0405,GCF_014852115.1_ASM1485211v1_genomic.fna,,ncbi
+sif1831,GCF_014851485.1_ASM1485148v1_genomic.fna,,ncbi
+sif2332,GCF_019218715.1_ASM1921871v1_genomic.fna,,ncbi
+sid0404,GCF_014852125.1_ASM1485212v1_genomic.fna,,ncbi
+sic0402,GCF_019219065.1_ASM1921906v1_genomic.fna,,ncbi
+sid1006,GCF_014851775.1_ASM1485177v1_genomic.fna,,ncbi
+sid1001,GCF_014851885.1_ASM1485188v1_genomic.fna,,ncbi
+sid0601,GCF_014852035.1_ASM1485203v1_genomic.fna,,ncbi
+sid0406,GCF_014852085.1_ASM1485208v1_genomic.fna,,ncbi
+sid0306,GCF_014852095.1_ASM1485209v1_genomic.fna,,ncbi
+sid0305,GCF_014852205.1_ASM1485220v1_genomic.fna,,ncbi
+sid0204,GCF_014852185.1_ASM1485218v1_genomic.fna,,ncbi
+sid0104,GCF_014852195.1_ASM1485219v1_genomic.fna,,ncbi
+sic0404,GCF_014852425.1_ASM1485242v1_genomic.fna,,ncbi
+sid0801,GCF_014852025.1_ASM1485202v1_genomic.fna,,ncbi
+sid1002,GCF_014851895.1_ASM1485189v1_genomic.fna,,ncbi
+sid0505,GCF_019219005.1_ASM1921900v1_genomic.fna,,ncbi
+sib0205,GCF_019219165.1_ASM1921916v1_genomic.fna,,ncbi
+sif2231,GCF_019218745.1_ASM1921874v1_genomic.fna,,ncbi
+sif1833,GCF_025641975.1_ASM2564197v1_genomic.fna,,ncbi
+sic1606,GCF_014852315.1_ASM1485231v1_genomic.fna,,ncbi
+sic0204,GCF_014852415.1_ASM1485241v1_genomic.fna,,ncbi
+sib0404,GCF_014852515.1_ASM1485251v1_genomic.fna,,ncbi
+ATCC19367,GCF_025598485.1_ASM2559848v1_genomic.fna,,ncbi
+sid0410,GCF_014851995.1_ASM1485199v1_genomic.fna,,ncbi
+sic1005,GCF_014852325.1_ASM1485232v1_genomic.fna,,ncbi
+sic1004,GCF_014852285.1_ASM1485228v1_genomic.fna,,ncbi
+sic1001,GCF_014852385.1_ASM1485238v1_genomic.fna,,ncbi
+sie2115,GCF_014851765.1_ASM1485176v1_genomic.fna,,ncbi
+sif0631,GCF_014851685.1_ASM1485168v1_genomic.fna,,ncbi
+sic0604,GCF_014852395.1_ASM1485239v1_genomic.fna,,ncbi
+sic0904,GCF_014852405.1_ASM1485240v1_genomic.fna,,ncbi
+sic1205,GCF_014852305.1_ASM1485230v1_genomic.fna,,ncbi
+sic1102,GCF_014852295.1_ASM1485229v1_genomic.fna,,ncbi
+sif2232,GCF_014851505.1_ASM1485150v1_genomic.fna,,ncbi
+sib0612,GCF_014852485.1_ASM1485248v1_genomic.fna,,ncbi
+sia0902,GCF_025685765.1_ASM2568576v1_genomic.fna,,ncbi
+sid0803,GCF_014851905.1_ASM1485190v1_genomic.fna,,ncbi
+PDM15,GCF_014851565.1_ASM1485156v1_genomic.fna,,ncbi
+sid1005,GCF_014851865.1_ASM1485186v1_genomic.fna,,ncbi
+sid0705,GCF_014851985.1_ASM1485198v1_genomic.fna,,ncbi
+sia0703,GCF_014852585.1_ASM1485258v1_genomic.fna,,ncbi
+sid0102,GCF_014852215.1_ASM1485221v1_genomic.fna,,ncbi
+sia0901,GCF_014852575.2_ASM1485257v2_genomic.fna,,ncbi
+sib0112,GCF_014852505.1_ASM1485250v1_genomic.fna,,ncbi
+sid0802,GCF_014851965.1_ASM1485196v1_genomic.fna,,ncbi
+sid0205,GCF_014852225.1_ASM1485222v1_genomic.fna,,ncbi
+sie0102,GCF_019218905.1_ASM1921890v1_genomic.fna,,ncbi
+sic0702,GCF_019219045.1_ASM1921904v1_genomic.fna,,ncbi
+sib0115,GCF_019219185.1_ASM1921918v1_genomic.fna,,ncbi
+sib0509,GCF_019219205.1_ASM1921920v1_genomic.fna,,ncbi
+sic0102,GCF_019219115.1_ASM1921911v1_genomic.fna,,ncbi
+sic0105,GCF_019219145.1_ASM1921914v1_genomic.fna,,ncbi
+sic1506,GCF_019218985.1_ASM1921898v1_genomic.fna,,ncbi
+sie1401,GCF_019218965.1_ASM1921896v1_genomic.fna,,ncbi
+sib0402,GCF_019219225.1_ASM1921922v1_genomic.fna,,ncbi
+sia0102,GCF_019219265.1_ASM1921926v1_genomic.fna,,ncbi
+sif0513,GCF_014851795.1_ASM1485179v1_genomic.fna,,ncbi
+sia0905,GCF_019219245.1_ASM1921924v1_genomic.fna,,ncbi
+sie1917,GCF_014851815.1_ASM1485181v1_genomic.fna,,ncbi
+sie1413,GCF_014851805.1_ASM1485180v1_genomic.fna,,ncbi
+sid0704,GCF_014852005.1_ASM1485200v1_genomic.fna,,ncbi
+sif0514,GCF_014851695.1_ASM1485169v1_genomic.fna,,ncbi
+sid0605,GCF_019218945.1_ASM1921894v1_genomic.fna,,ncbi
+sib0102,GCF_014852555.1_ASM1485255v1_genomic.fna,,ncbi
+sif0612,GCF_014851675.1_ASM1485167v1_genomic.fna,,ncbi
+sif1632,GCF_014851595.1_ASM1485159v1_genomic.fna,,ncbi
+RHZ02,GCF_014851575.1_ASM1485157v1_genomic.fna,,ncbi
+sid0307,GCF_014852135.1_ASM1485213v1_genomic.fna,,ncbi
+sib0411,GCF_014852545.1_ASM1485254v1_genomic.fna,,ncbi
+sid0904,GCF_014851915.1_ASM1485191v1_genomic.fna,,ncbi
+OTU736,GCF_038440295.1_ASM3844029v1_genomic.fna,,ncbi
+OTU364,GCF_038440395.1_ASM3844039v1_genomic.fna,,ncbi
+OTU2372,GCF_038440275.1_ASM3844027v1_genomic.fna,,ncbi
+OTU530,GCF_038440375.1_ASM3844037v1_genomic.fna,,ncbi
+OTU4054,GCF_038440175.1_ASM3844017v1_genomic.fna,,ncbi
+OTU4895,GCF_038440155.1_ASM3844015v1_genomic.fna,,ncbi
+OTU695,GCF_038440355.1_ASM3844035v1_genomic.fna,,ncbi
+OTU672,GCF_038440335.1_ASM3844033v1_genomic.fna,,ncbi
+OTU3427,GCF_038440225.1_ASM3844022v1_genomic.fna,,ncbi
+OTU3971,GCF_038440215.1_ASM3844021v1_genomic.fna,,ncbi
+OTU100,GCF_038440435.1_ASM3844043v1_genomic.fna,,ncbi
+OTU4001,GCF_038440195.1_ASM3844019v1_genomic.fna,,ncbi
+OTU2001,GCF_038440315.1_ASM3844031v1_genomic.fna,,ncbi
+OTU5201,GCF_038440135.1_ASM3844013v1_genomic.fna,,ncbi
+OTU4908,GCF_038440115.1_ASM3844011v1_genomic.fna,,ncbi
+OTU376,GCF_038440415.1_ASM3844041v1_genomic.fna,,ncbi
+HMWF026,B2FQLV_1_HMWF026.fna,,plasmidsaurus
+HMWF028,B2FQLV_10_HMWF028.fna,,plasmidsaurus
+fb66,B2FQLV_2_fb66.fna,,plasmidsaurus
+HMWF013,B2FQLV_3_HMWF013.fna,,plasmidsaurus
+JW81705,B2FQLV_4_JW81705.fna,,plasmidsaurus
+fb34,B2FQLV_5_fb34.fna,,plasmidsaurus
+OTU376,B2FQLV_6_OTU376.fna,,plasmidsaurus
+HMWF015,B2FQLV_7_HMWF015.fna,,plasmidsaurus
+HTM14,B2FQLV_8_HTM14.fna,,plasmidsaurus
+BPT1a11,B2FQLV_9_BPT1a11.fna,,plasmidsaurus
+fb9,GL78RF_1_fb9.fna,,plasmidsaurus
+fb45,GL78RF_10_fb45.fna,,plasmidsaurus
+HTWP6,GL78RF_11_HTWP6.fna,,plasmidsaurus
+fb33,GL78RF_12_fb33.fna,,plasmidsaurus
+JW81701,GL78RF_13_JW81701.fna,,plasmidsaurus
+fb40,GL78RF_14_fb40.fna,,plasmidsaurus
+fb69,GL78RF_15_fb69.fna,,plasmidsaurus
+fb18,GL78RF_16_fb18.fna,,plasmidsaurus
+HTM13,GL78RF_17_HTM13.fna,,plasmidsaurus
+HTWP8,GL78RF_18_HTWP8.fna,,plasmidsaurus
+fb58,GL78RF_19_fb58.fna,,plasmidsaurus
+fb22,GL78RF_2_fb22.fna,,plasmidsaurus
+HTM11,GL78RF_20_HTM11.fna,,plasmidsaurus
+HTM18,GL78RF_21_HTM18.fna,,plasmidsaurus
+JW81711,GL78RF_22_JW81711.fna,,plasmidsaurus
+fb77,GL78RF_23_fb77.fna,,plasmidsaurus
+fb20,GL78RF_24_fb20.fna,,plasmidsaurus
+HTWP5,GL78RF_25_HTWP5.fna,,plasmidsaurus
+HTWP7,GL78RF_26_HTWP7.fna,,plasmidsaurus
+sid0103,GL78RF_27_sid0103.fna,,plasmidsaurus
+JW51703,GL78RF_28_JW51703.fna,,plasmidsaurus
+JW81710,GL78RF_29_JW81710.fna,,plasmidsaurus
+JW71704,GL78RF_3_JW71704.fna,,plasmidsaurus
+JW81713,GL78RF_30_JW81713.fna,,plasmidsaurus
+fb37,GL78RF_31_fb37.fna,,plasmidsaurus
+JW70604,GL78RF_32_JW70604.fna,,plasmidsaurus
+HTWP4,GL78RF_33_HTWP4.fna,,plasmidsaurus
+JW70609,GL78RF_34_JW70609.fna,,plasmidsaurus
+JM5,GL78RF_35_JM5.fna,,plasmidsaurus
+JW50604,GL78RF_36_JW50604.fna,,plasmidsaurus
+P571a11,GL78RF_37_P571a11.fna,,plasmidsaurus
+P571a13,GL78RF_38_P571a13.fna,,plasmidsaurus
+HMWF018,GL78RF_39_HMWF018.fna,,plasmidsaurus
+JW81702,GL78RF_4_JW81702.fna,,plasmidsaurus
+HTWP9,GL78RF_40_HTWP9.fna,,plasmidsaurus
+JM6,GL78RF_41_JM6.fna,,plasmidsaurus
+pd19367,GL78RF_42_pd19367.fna,,plasmidsaurus
+sie2117,GL78RF_43_sie2117.fna,,plasmidsaurus
+JM13,GL78RF_44_JM13.fna,,plasmidsaurus
+HMWF035,GL78RF_45_HMWF035.fna,,plasmidsaurus
+HMWF001,GL78RF_46_HMWF001.fna,,plasmidsaurus
+JS16,GL78RF_47_JS16.fna,,plasmidsaurus
+P571a12,GL78RF_48_P571a12.fna,,plasmidsaurus
+HMWF016,GL78RF_49_HMWF016.fna,,plasmidsaurus
+HTWP11,GL78RF_5_HTWP11.fna,,plasmidsaurus
+HMWF014,GL78RF_50_HMWF014.fna,,plasmidsaurus
+JW70608,GL78RF_51_JW70608.fna,,plasmidsaurus
+HTM12,GL78RF_52_HTM12.fna,,plasmidsaurus
+OTU530,GL78RF_53_OTU530.fna,,plasmidsaurus
+JFK4,GL78RF_54_JFK4.fna,,plasmidsaurus
+HMWF019,GL78RF_55_HMWF019.fna,,plasmidsaurus
+HMWF003,GL78RF_56_HMWF003.fna,,plasmidsaurus
+JW50603,GL78RF_57_JW50603.fna,,plasmidsaurus
+ALSP1a05,GL78RF_58_ALSP1a05.fna,,plasmidsaurus
+JW70606,GL78RF_59_JW70606.fna,,plasmidsaurus
+HTWP13,GL78RF_6_HTWP13.fna,,plasmidsaurus
+sid0204,GL78RF_60_sid0204.fna,,plasmidsaurus
+HMWF029,GL78RF_61_HMWF029.fna,,plasmidsaurus
+BFD1a11,GL78RF_62_BFD1a11.fna,,plasmidsaurus
+JW50602,GL78RF_63_JW50602.fna,,plasmidsaurus
+KC611216,GL78RF_64_6-1-12-16.fna,,plasmidsaurus
+OTU2469,GL78RF_65_OTU2469.fna,,plasmidsaurus
+sid0801,GL78RF_66_sid0801.fna,,plasmidsaurus
+BFD1a24,GL78RF_67_BFD1a24.fna,,plasmidsaurus
+sid1001,GL78RF_68_sid1001.fna,,plasmidsaurus
+fb8,GL78RF_69_fb8.fna,,plasmidsaurus
+fb43,GL78RF_7_fb43.fna,,plasmidsaurus
+JW70530,GL78RF_70_JW70530.fna,,plasmidsaurus
+fb60,GL78RF_8_fb60.fna,,plasmidsaurus
+HTWP2,GL78RF_9_HTWP2.fna,,plasmidsaurus
+BPT1a11,JJMPTL_1_rerun_BPT1a11_9.fna,,plasmidsaurus
+HMWF026,JJMPTL_2_rerun_HMWF026_1.fna,,plasmidsaurus
+HTWP2,KSTWBZ_1_rerun_HTWP2_9.fna,,plasmidsaurus
+HTWP8,KSTWBZ_2_rerun_HTWP8_18.fna,,plasmidsaurus
+TI.1.02,pseudoalteromonas_aliena_1_02.fa,,other
+TI.1.03,pseudoalteromonas_issa_1_03.fa,,other
+TI.1.05,psychromonas_aqua_1_05.fa,,other
+TI.1.15,vibrio_lentus_1_15.fa,,other
+TI.2.02,pseudoalteromonas_agar_2_02.fa,,other
+TI.3.09,algibacter_TI.3.09_clean.fa,,other
+TI.3.14,olleya_3_14.fa,,other
+TI.3.15,rhodoglobus_3_15.fa,,other
+TI.4.07,marinomonas_aren_4_07.fa,,other
+TI.4.08,marinomonas_aren_4_08.fa,,other
+TI.5.07,cobetia_marina_TI.5.07_clean.fa,,other
+TI.7.08,psychromonas_adel_7_08.fa,,other
+TI.9.02,marinomonas_primoryensis_9_02.fa,,other
+TI.9.03,pseudoalteromonas_9_03.fa,,other
+TI.9.08,psychrobacter_9_08.fa,,other
+TI.9.09,psychrobacter_9_09.fa,,other
+TI.9.14,polaribacter_atrinae_9_14.fa,,other
+TI.9.20,algibacter_lectus_9_20.fa,,other
+TI.9.21,planococcus_9_21.fa,,other
+TI.9.23,vibrio_echinoideorum_9_23.fa,,other
+TI.9.30,psychromonas_9_30.fa,,other
+TI.9.36,nocardioides_9_36.fa,,other
+TI.9.39,winogradskyella_9_39.fa,,other
+TI.9.42,cellulophaga_baltica_9_42.fa,,other
+TI.9.43,pseudoalteromonas_fuliginea_9_43.fa,,other
+TI.9.44,idiomarina_loihiensis_9_44.fa,,other
+TI.9.58,granulo_sep_9_58.fa,,other
+DSM107188,granulo_und_dsmz107188.fa,,other
+DSM24912,granulo_antarc_ncbi_dsmz24912.fa,,other
+TI.1.06,psychromonas_TI.1.06.fa,,other
+TI.2.03,pseudoalteromonas_TI.2.03.fa,,other
+TI.2.04,pseudoalteromonas_TI.2.04.fa,,other
+TI.2.08,pseudoalteromonas_TI.2.08.fa,,other
+TI.3.05,pseudoalteromonas_TI.3.05.fa,,other
+TI.5.02,pseudoalteromonas_TI.5.02.fa,,other
+TI.7.10,pseudoalteromonas_TI.7.10.fa,,other
+TI.9.60,flavo_TI.9.60.fa,,other
+TN.2.01,pseudoalteromonas_undina_2_01.fa,,other
+TI.1.01,pseudoalteromonas_carag_1_01.fa,,other
+TI.2.07,psychromonas_arct_2_07.fa,,other
+TI.3.20,marinomonas_sp_3_20.fa,,other
+TI.9.04,rahnella_aquatilis_9_04.fa,,other
+TI.9.05,erwinia_persicina_9_05.fa,,other
+TI.9.06,pseudomonas_psychrophila_9_06.fa,,other
+TI.9.10,curtobacterium_flaccumfaciens_9_10.fa,,other
+TI.9.11,pseudomonas_graminis_9_11.fa,,other
+TI.9.12,rahnella_9_12.fa,,other
+TI.9.13,psychromonas_ingrahamii_9_13.fa,,other
+TI.9.17,polaribacter_atrinae_9_17.fa,,other
+TI.9.19,pseudoalteromonas_distincta_9_19.fa,,other
+TI.9.32,yoonia_9_32.fa,,other
+TI.9.37,dokdonia_9_37.fa,,other
+TI.9.41,sphingomonas_aerolata_9_41.fa,,other
+TI.9.57,yoonia_9_57.fa,,other
+TI.9.61,granulo_jul_9_61.fa,,other
+HTM15,zr24986_1-unicycler.scaffolds,"zr24986_1_R1.fastq.gz, zr24986_1_R2.fastq.gz",zymo
+JW70612,zr24986_2-unicycler.scaffolds,"zr24986_2_R1.fastq.gz, zr24986_2_R2.fastq.gz",zymo
+JFK3,zr24986_3-unicycler.scaffolds,"zr24986_3_R1.fastq.gz, zr24986_3_R2.fastq.gz",zymo
+HTWP12,zr24986_4-unicycler.scaffolds,"zr24986_4_R1.fastq.gz, zr24986_4_R2.fastq.gz",zymo
+JW71708,zr24986_5-unicycler.scaffolds,"zr24986_5_R1.fastq.gz, zr24986_5_R2.fastq.gz",zymo
+fb15,zr24986_6-unicycler.scaffolds,"zr24986_6_R1.fastq.gz, zr24986_6_R2.fastq.gz",zymo
+fb35,zr24986_7-unicycler.scaffolds,"zr24986_7_R1.fastq.gz, zr24986_7_R2.fastq.gz",zymo
+JW51706,zr24986_8-unicycler.scaffolds,"zr24986_8_R1.fastq.gz, zr24986_8_R2.fastq.gz",zymo
+JW50603,zr24986_9-unicycler.scaffolds,"zr24986_9_R1.fastq.gz, zr24986_9_R2.fastq.gz",zymo
+JW50607,zr24986_10-unicycler.scaffolds,"zr24986_10_R1.fastq.gz, zr24986_10_R2.fastq.gz",zymo
+ALSP1a05,zr24986_11-unicycler.scaffolds,"zr24986_11_R1.fastq.gz, zr24986_11_R2.fastq.gz",zymo
+JM5,zr24986_12-unicycler.scaffolds,"zr24986_12_R1.fastq.gz, zr24986_12_R2.fastq.gz",zymo
+JW51705,zr24986_13-unicycler.scaffolds,"zr24986_13_R1.fastq.gz, zr24986_13_R2.fastq.gz",zymo
+sic0904,zr24986_14-unicycler.scaffolds,"zr24986_14_R1.fastq.gz, zr24986_14_R2.fastq.gz",zymo
+fb79,zr24986_15-unicycler.scaffolds,"zr24986_15_R1.fastq.gz, zr24986_15_R2.fastq.gz",zymo
+JW71707,zr24986_16-unicycler.scaffolds,"zr24986_16_R1.fastq.gz, zr24986_16_R2.fastq.gz",zymo
+JW80607,zr24986_17-unicycler.scaffolds,"zr24986_17_R1.fastq.gz, zr24986_17_R2.fastq.gz",zymo
+JW70609,zr24986_18-unicycler.scaffolds,"zr24986_18_R1.fastq.gz, zr24986_18_R2.fastq.gz",zymo
+fb61,zr24986_19-unicycler.scaffolds,"zr24986_19_R1.fastq.gz, zr24986_19_R2.fastq.gz",zymo
+JW81709,zr24986_20-unicycler.scaffolds,"zr24986_20_R1.fastq.gz, zr24986_20_R2.fastq.gz",zymo
+JS16,zr24986_21-unicycler.scaffolds,"zr24986_21_R1.fastq.gz, zr24986_21_R2.fastq.gz",zymo
+JW81703,zr24986_22-unicycler.scaffolds,"zr24986_22_R1.fastq.gz, zr24986_22_R2.fastq.gz",zymo
+HTWP14,zr24986_23-unicycler.scaffolds,"zr24986_23_R1.fastq.gz, zr24986_23_R2.fastq.gz",zymo
+fb57,zr24986_24-unicycler.scaffolds,"zr24986_24_R1.fastq.gz, zr24986_24_R2.fastq.gz",zymo
+HTM14,zr24986_25-unicycler.scaffolds,"zr24986_25_R1.fastq.gz, zr24986_25_R2.fastq.gz",zymo
+KC75122,zr24986_26-unicycler.scaffolds,"zr24986_26_R1.fastq.gz, zr24986_26_R2.fastq.gz",zymo
+JW70607,zr24986_27-unicycler.scaffolds,"zr24986_27_R1.fastq.gz, zr24986_27_R2.fastq.gz",zymo
+KC75121,zr24986_28-unicycler.scaffolds,"zr24986_28_R1.fastq.gz, zr24986_28_R2.fastq.gz",zymo
+P571a11,zr24986_29-unicycler.scaffolds,"zr24986_29_R1.fastq.gz, zr24986_29_R2.fastq.gz",zymo
+sic0303,zr24986_30-unicycler.scaffolds,"zr24986_30_R1.fastq.gz, zr24986_30_R2.fastq.gz",zymo
+JW50606,zr24986_31-unicycler.scaffolds,"zr24986_31_R1.fastq.gz, zr24986_31_R2.fastq.gz",zymo
+fb38,zr24986_32-unicycler.scaffolds,"zr24986_32_R1.fastq.gz, zr24986_32_R2.fastq.gz",zymo
+BFD1a07,zr24986_33-unicycler.scaffolds,"zr24986_33_R1.fastq.gz, zr24986_33_R2.fastq.gz",zymo
+BFD1a24,zr24986_34-unicycler.scaffolds,"zr24986_34_R1.fastq.gz, zr24986_34_R2.fastq.gz",zymo
+fb46,zr24986_35-unicycler.scaffolds,"zr24986_35_R1.fastq.gz, zr24986_35_R2.fastq.gz",zymo
+JW70608,zr24986_36-unicycler.scaffolds,"zr24986_36_R1.fastq.gz, zr24986_36_R2.fastq.gz",zymo
+P571a12,zr24986_37-unicycler.scaffolds,"zr24986_37_R1.fastq.gz, zr24986_37_R2.fastq.gz",zymo
+JW80604,zr24986_38-unicycler.scaffolds,"zr24986_38_R1.fastq.gz, zr24986_38_R2.fastq.gz",zymo
+JW70603,zr24986_39-unicycler.scaffolds,"zr24986_39_R1.fastq.gz, zr24986_39_R2.fastq.gz",zymo
+JFK2,zr24986_40-unicycler.scaffolds,"zr24986_40_R1.fastq.gz, zr24986_40_R2.fastq.gz",zymo
+1A01,GCF_002700025.1_ASM270002v1_genomic.fna,,ncbi
+3D05,GCF_002723455.1_ASM272345v1_genomic.fna,,ncbi
+6C06,GCF_002835465.1_ASM283546v1_genomic.fna,,ncbi
+6D03,GCF_002835515.1_ASM283551v1_genomic.fna,,ncbi
+A1M10,GCF_030549105.1_ASM3054910v1_genomic.fna,,ncbi
+E3M18,GCF_018860365.1_ASM1886036v1_genomic.fna,,ncbi
+TI.9.16,BBKM7T_10_TI.9.16_1_reference.fna,,plasmidsaurus
+TI.7.09,BBKM7T_11_TI.7.09_1_reference.fna,,plasmidsaurus
+TI.9.53,BBKM7T_1_TI.9.53_1_reference.fna,,plasmidsaurus
+TN.2.05,BBKM7T_2_TN.2.05_1_reference.fna,,plasmidsaurus
+TI.9.44,BBKM7T_4_TI.9.44_1_reference.fna,,plasmidsaurus
+TI.5.01,BBKM7T_5_TI.5.01_1_reference.fna,,plasmidsaurus
+TI.3.10,BBKM7T_7_TI.3.10_1_reference.fna,,plasmidsaurus
+TI.9.48,BBKM7T_8_TI.9.48_1_reference.fna,,plasmidsaurus
+TI.7.03,BBKM7T_9_TI.7.03_1_reference.fna,,plasmidsaurus
+TI.9.54,BZTMSZ_1_rerun_TI.9.54_3_1_reference.fna,,plasmidsaurus
