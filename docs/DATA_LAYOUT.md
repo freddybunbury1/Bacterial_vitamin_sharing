@@ -10,7 +10,8 @@ public analyses. GTDB-Tk is the public taxonomy source; legacy internal 16S
 
 Additional mappings and layouts are stored with the analyses that consume them:
 
-- `data/raw/metadata_strains/microtrait_strain_id_to_genome_filename_20260520.csv`
+- `data/raw/metadata_strains/strain_id_to_genome_filename.csv`
+- `data/raw/metadata_strains/media_recipes.csv`
 - `data/raw/b12_release_uptake_death/metadata/`
 
 ## Instrument and assay inputs
@@ -28,7 +29,7 @@ Instrument-export filenames and bytes are preserved.
 - `data/raw/gwa/`
 - `data/raw/gtdbtk/gtdbtk.bac120.summary.tsv`
 - `data/raw/gtdbtk/gtdbtk.bac120.study_genomes.tree`
-- `data/raw/metadata_strains/microtrait_strain_id_to_genome_filename_20260520.csv`
+- `data/raw/metadata_strains/strain_id_to_genome_filename.csv`
 
 These are the current study-genome products. The older 193-genome GTDB-Tk
 summary and the former `data/pre-raw/` tree are not inputs and are not included.

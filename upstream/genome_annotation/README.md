@@ -42,7 +42,7 @@ that does not reflect how the analysis was run.
 
 The workflow documentation should also explain how assembly identifiers are
 connected to
-`data/raw/metadata_strains/microtrait_strain_id_to_genome_filename_20260520.csv`.
+`data/raw/metadata_strains/strain_id_to_genome_filename.csv`.
 
 The workflow must write under `output/` by default and must not overwrite the
 fixed `data/raw/` files automatically. Differences between regenerated and

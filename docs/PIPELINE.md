@@ -11,7 +11,7 @@ the following fixed order:
 6. `growth_dynamics_b12_methionine_analysis.R`
 7. `b12_release_uptake_death_analysis.R`
 8. `b12_trait_classification_analysis.R`
-9. preprocess figure panels and assemble Figures 1–5 and S1–S17
+9. export Tables S1–S2, preprocess figure panels, and assemble Figures 1–5 and S1–S17
 
 ## Analysis dependencies
 
@@ -35,7 +35,9 @@ working directory is elsewhere.
 
 ## Optional upstream workflows
 
-The workflows under `upstream/` document how coauthor analyses produced the
+Table S1 is generated directly from the canonical bacterial strain metadata,
+and Table S2 is generated from the canonical media-recipe CSV. The workflows
+under `upstream/` document how coauthor analyses produced the
 fixed genome, GTDB-Tk, and Pyseer inputs under `data/raw/`. They are deliberately
 separate from the manuscript R pipeline and are not sourced by
 `compiled_figures.Rmd`. Their local `output/` directories are ignored by Git;

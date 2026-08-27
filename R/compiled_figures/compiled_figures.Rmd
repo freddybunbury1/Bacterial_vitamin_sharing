@@ -38,7 +38,7 @@ knitr::opts_chunk$set(
 
 ```{r preprocessing-functions}
 required_packages <- c(
-  "ape", "cowplot", "dplyr", "ggnewscale", "ggplot2", "knitr", "magick", "maps", "patchwork", "tibble", "tidyr"
+  "ape", "cowplot", "dplyr", "ggnewscale", "ggplot2", "knitr", "magick", "maps", "openxlsx", "patchwork", "tibble", "tidyr"
 )
 missing_packages <- required_packages[
   !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
@@ -59,6 +59,9 @@ additional_subpanel_dir <- file.path(output_dir, "additional_subpanels")
 dir.create(processed_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(additional_subpanel_dir, recursive = TRUE, showWarnings = FALSE)
+
+table_s1_path <- file.path(output_dir, "TableS1.xlsx")
+table_s2_path <- file.path(output_dir, "TableS2.xlsx")
 
 figure1_data_inputs <- c(
   tree = file.path(
@@ -102,6 +105,310 @@ standardize_panel <- function(input, output, width_px, height_px) {
   magick::image_write(image, path = output, format = "png", density = "400x400")
   invisible(output)
 }
+```
+
+## Export supplementary Table S1
+
+Table S1 is generated directly from the canonical strain metadata. The workbook
+retains every physical strain-bank or experimental-array position and includes
+a Notes worksheet explaining the relationship between rows and unique isolates.
+
+```{r export-table-s1, include=FALSE}
+strain_metadata_path <- file.path(
+  project_dir, "data", "raw", "metadata_strains", "bacterial_strain_metadata.csv"
+)
+stop_if_missing(strain_metadata_path)
+
+strain_metadata <- utils::read.csv(
+  strain_metadata_path,
+  check.names = FALSE,
+  stringsAsFactors = FALSE,
+  na.strings = c("", "NA")
+)
+
+control_ids <- c("blank", "unknown")
+normalized_ids <- tolower(trimws(strain_metadata$strain_id))
+is_isolate <- !is.na(normalized_ids) &
+  nzchar(normalized_ids) &
+  !normalized_ids %in% control_ids
+n_unique_isolates <- length(unique(strain_metadata$strain_id[is_isolate]))
+n_isolate_rows <- sum(is_isolate)
+n_control_rows <- sum(!is_isolate)
+n_duplicate_placements <- n_isolate_rows - n_unique_isolates
+
+if (n_unique_isolates != 277L) {
+  stop(
+    "Table S1 metadata contains ", n_unique_isolates,
+    " unique isolates; the manuscript currently reports 277."
+  )
+}
+
+environment_counts <- sort(
+  table(unique(strain_metadata[is_isolate, c("strain_id", "broad_environment")])$broad_environment),
+  decreasing = TRUE
+)
+environment_summary <- paste(
+  paste0(names(environment_counts), " (n = ", as.integer(environment_counts), ")"),
+  collapse = ", "
+)
+
+table_s1_notes <- data.frame(
+  Item = c(
+    "Table title",
+    "Canonical source",
+    "Row interpretation",
+    "Unique isolates",
+    "Environmental composition",
+    "Duplicate placements",
+    "Control positions",
+    "Missing values"
+  ),
+  Description = c(
+    "Table S1. Bacterial isolate, collection, and experimental-array metadata.",
+    "data/raw/metadata_strains/bacterial_strain_metadata.csv",
+    paste0(
+      "The ", nrow(strain_metadata),
+      " rows represent physical strain-bank or experimental-array positions, not necessarily unique isolates."
+    ),
+    as.character(n_unique_isolates),
+    environment_summary,
+    paste0(
+      n_duplicate_placements,
+      " isolates occur in a second array position; provenance is consistent across repeated strain IDs."
+    ),
+    paste0(n_control_rows, " rows have strain_id equal to blank or unknown."),
+    "Blank cells indicate metadata that were not recorded or are not applicable."
+  ),
+  stringsAsFactors = FALSE
+)
+
+table_s1_dictionary <- data.frame(
+  Column = names(strain_metadata),
+  Definition = c(
+    "Stable isolate or control identifier.",
+    "Name of the physical strain-bank box.",
+    "Tube position within the strain-bank box.",
+    "Experimental array-plate identifier.",
+    "Well position within the experimental array plate.",
+    "Medium used to generate the stored stock.",
+    "Adjusted OD600 associated with the stored stock entry.",
+    "Identifier for the originating environmental sample.",
+    "Description of the collection location.",
+    "Collection date in ISO 8601 format (YYYY-MM-DD).",
+    "Collection latitude in decimal degrees.",
+    "Collection longitude in decimal degrees.",
+    "Recorded isolation conditions or description.",
+    "Broad environmental category: soil, freshwater, or marine.",
+    "Environment Ontology identifier for the broad environment."
+  ),
+  stringsAsFactors = FALSE
+)
+
+table_s1_workbook <- openxlsx::createWorkbook()
+openxlsx::addWorksheet(table_s1_workbook, "Bacterial strain metadata")
+openxlsx::addWorksheet(table_s1_workbook, "Notes")
+
+openxlsx::writeDataTable(
+  table_s1_workbook,
+  sheet = "Bacterial strain metadata",
+  x = strain_metadata,
+  tableStyle = "TableStyleMedium2",
+  withFilter = TRUE,
+  keepNA = FALSE
+)
+openxlsx::freezePane(table_s1_workbook, "Bacterial strain metadata", firstRow = TRUE)
+openxlsx::setColWidths(
+  table_s1_workbook,
+  "Bacterial strain metadata",
+  cols = seq_along(strain_metadata),
+  widths = c(14, 29, 14, 30, 12, 22, 22, 24, 30, 16, 18, 18, 34, 20, 17)
+)
+
+title_style <- openxlsx::createStyle(fontSize = 14, textDecoration = "bold")
+section_style <- openxlsx::createStyle(fontSize = 11, textDecoration = "bold")
+openxlsx::writeData(
+  table_s1_workbook,
+  "Notes",
+  "Table S1. Bacterial isolate, collection, and experimental-array metadata",
+  startRow = 1,
+  startCol = 1
+)
+openxlsx::addStyle(table_s1_workbook, "Notes", title_style, rows = 1, cols = 1)
+openxlsx::writeDataTable(
+  table_s1_workbook,
+  "Notes",
+  table_s1_notes,
+  startRow = 3,
+  tableStyle = "TableStyleMedium2",
+  withFilter = FALSE
+)
+dictionary_start_row <- nrow(table_s1_notes) + 6L
+openxlsx::writeData(
+  table_s1_workbook,
+  "Notes",
+  "Column definitions",
+  startRow = dictionary_start_row,
+  startCol = 1
+)
+openxlsx::addStyle(
+  table_s1_workbook,
+  "Notes",
+  section_style,
+  rows = dictionary_start_row,
+  cols = 1
+)
+openxlsx::writeDataTable(
+  table_s1_workbook,
+  "Notes",
+  table_s1_dictionary,
+  startRow = dictionary_start_row + 1L,
+  tableStyle = "TableStyleMedium2",
+  withFilter = FALSE
+)
+openxlsx::setColWidths(table_s1_workbook, "Notes", cols = 1, widths = 28)
+openxlsx::setColWidths(table_s1_workbook, "Notes", cols = 2, widths = 95)
+openxlsx::addStyle(
+  table_s1_workbook,
+  "Notes",
+  openxlsx::createStyle(wrapText = TRUE, valign = "top"),
+  rows = 1:(dictionary_start_row + nrow(table_s1_dictionary) + 1L),
+  cols = 1:2,
+  gridExpand = TRUE
+)
+openxlsx::saveWorkbook(table_s1_workbook, table_s1_path, overwrite = TRUE)
+```
+
+## Export supplementary Table S2
+
+Table S2 is generated from the canonical media-recipe CSV. The workbook omits
+two empty trailing CSV columns and normalizes surrounding whitespace for
+presentation; recipe content remains controlled by the raw input.
+
+```{r export-table-s2, include=FALSE}
+media_recipes_path <- file.path(
+  project_dir, "data", "raw", "metadata_strains", "media_recipes.csv"
+)
+stop_if_missing(media_recipes_path)
+
+media_recipes_raw <- utils::read.csv(
+  media_recipes_path,
+  check.names = FALSE,
+  stringsAsFactors = FALSE,
+  fileEncoding = "UTF-8-BOM",
+  blank.lines.skip = FALSE
+)
+nonempty_columns <- vapply(
+  media_recipes_raw,
+  function(x) any(!is.na(x) & trimws(as.character(x)) != ""),
+  logical(1)
+)
+media_recipes <- media_recipes_raw[, nonempty_columns, drop = FALSE]
+if (ncol(media_recipes) != 2L) {
+  stop(
+    "Table S2 media recipes must contain exactly two non-empty columns; found ",
+    ncol(media_recipes), "."
+  )
+}
+names(media_recipes) <- c("Medium or component", "Volume or mass")
+media_recipes[] <- lapply(
+  media_recipes,
+  function(x) trimws(gsub("\u00A0", " ", as.character(x), fixed = TRUE))
+)
+
+table_s2_workbook <- openxlsx::createWorkbook()
+openxlsx::addWorksheet(table_s2_workbook, "Media recipes")
+openxlsx::addWorksheet(table_s2_workbook, "Notes")
+openxlsx::writeData(
+  table_s2_workbook,
+  "Media recipes",
+  media_recipes,
+  startRow = 1,
+  startCol = 1,
+  colNames = TRUE,
+  keepNA = FALSE,
+  withFilter = FALSE
+)
+header_style <- openxlsx::createStyle(
+  fgFill = "#1F4E78",
+  fontColour = "#FFFFFF",
+  textDecoration = "bold",
+  halign = "center"
+)
+recipe_style <- openxlsx::createStyle(
+  fgFill = "#D9EAF7",
+  textDecoration = "bold"
+)
+wrap_style <- openxlsx::createStyle(wrapText = TRUE, valign = "top")
+openxlsx::addStyle(
+  table_s2_workbook,
+  "Media recipes",
+  header_style,
+  rows = 1,
+  cols = 1:2,
+  gridExpand = TRUE
+)
+blank_recipe_row <- media_recipes[[1]] == "" & media_recipes[[2]] == ""
+section_rows <- which(
+  media_recipes[[1]] != "" & c(TRUE, head(blank_recipe_row, -1L))
+) + 1L
+openxlsx::addStyle(
+  table_s2_workbook,
+  "Media recipes",
+  recipe_style,
+  rows = section_rows,
+  cols = 1:2,
+  gridExpand = TRUE
+)
+openxlsx::addStyle(
+  table_s2_workbook,
+  "Media recipes",
+  wrap_style,
+  rows = seq_len(nrow(media_recipes)) + 1L,
+  cols = 1:2,
+  gridExpand = TRUE,
+  stack = TRUE
+)
+openxlsx::freezePane(table_s2_workbook, "Media recipes", firstRow = TRUE)
+openxlsx::setColWidths(table_s2_workbook, "Media recipes", cols = 1, widths = 48)
+openxlsx::setColWidths(table_s2_workbook, "Media recipes", cols = 2, widths = 70)
+
+table_s2_notes <- data.frame(
+  Item = c("Table title", "Canonical source", "Row interpretation", "Presentation processing"),
+  Description = c(
+    "Table S2. Media and stock-solution recipes used in the study.",
+    "data/raw/metadata_strains/media_recipes.csv",
+    "Bold blue rows identify individual media or stock-solution recipes; subsequent rows list their components or instructions.",
+    "Two entirely empty trailing CSV columns were omitted and surrounding whitespace was normalized. Recipe wording and quantities otherwise follow the canonical CSV."
+  ),
+  stringsAsFactors = FALSE
+)
+openxlsx::writeData(
+  table_s2_workbook,
+  "Notes",
+  "Table S2. Media and stock-solution recipes used in the study",
+  startRow = 1,
+  startCol = 1
+)
+openxlsx::addStyle(table_s2_workbook, "Notes", title_style, rows = 1, cols = 1)
+openxlsx::writeDataTable(
+  table_s2_workbook,
+  "Notes",
+  table_s2_notes,
+  startRow = 3,
+  tableStyle = "TableStyleMedium2",
+  withFilter = FALSE
+)
+openxlsx::setColWidths(table_s2_workbook, "Notes", cols = 1, widths = 28)
+openxlsx::setColWidths(table_s2_workbook, "Notes", cols = 2, widths = 95)
+openxlsx::addStyle(
+  table_s2_workbook,
+  "Notes",
+  wrap_style,
+  rows = 1:(nrow(table_s2_notes) + 4L),
+  cols = 1:2,
+  gridExpand = TRUE
+)
+openxlsx::saveWorkbook(table_s2_workbook, table_s2_path, overwrite = TRUE)
 ```
 
 ## Run the raw-data-to-analysis pipeline
@@ -3595,9 +3902,9 @@ figure_outputs <- c(
   figure_s17_png, figure_s17_pdf
 )
 data.frame(
-  output = figure_outputs,
-  exists = file.exists(figure_outputs),
-  size_bytes = file.info(figure_outputs)$size,
+  output = c(figure_outputs, table_s1_path, table_s2_path),
+  exists = file.exists(c(figure_outputs, table_s1_path, table_s2_path)),
+  size_bytes = file.info(c(figure_outputs, table_s1_path, table_s2_path))$size,
   row.names = NULL
 )
 ```

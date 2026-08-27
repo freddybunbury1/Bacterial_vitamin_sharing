@@ -22,6 +22,7 @@ The clean-room renders reported in `REPRODUCIBILITY_AUDIT.md` used:
 | magick | 2.9.1 |
 | maps | 3.4.3 |
 | minpack.lm | 1.2.4 |
+| openxlsx | 4.2.8.1 |
 | patchwork | 1.3.2 |
 | phytools | 2.5.2 |
 | purrr | 1.1.0 |

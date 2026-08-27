@@ -9,7 +9,7 @@ summary_path <- file.path("data/raw/gtdbtk", "gtdbtk.bac120.summary.tsv")
 tree_path <- file.path("data/raw/gtdbtk", "gtdbtk.bac120.study_genomes.tree")
 genome_map_path <- file.path(
   "data/raw/metadata_strains",
-  "microtrait_strain_id_to_genome_filename_20260520.csv"
+  "strain_id_to_genome_filename.csv"
 )
 trait_path <- file.path(
   "data/processed/b12_trait_survey",

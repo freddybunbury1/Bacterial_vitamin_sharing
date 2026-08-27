@@ -2,6 +2,11 @@
 
 Canonical curated strain metadata and strain-to-genome mappings belong here.
 
+`media_recipes.csv` is the canonical source for supplementary Table S2.
+`strain_id_to_genome_filename.csv` links strain identifiers to the internal or
+NCBI genome filenames currently used by the genome analyses. It can later be
+extended with BioSample or SRA accessions without changing its stable filename.
+
 `bacterial_strain_metadata.csv` is the canonical 15-column public derivative of
 the dated working metadata table. It contains strain identity, physical inventory,
 experimental-array layout, and isolation provenance. The following 16S-derived

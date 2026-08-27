@@ -18,8 +18,9 @@ Rscript --vanilla -e 'dir.create("results/compiled_figures", recursive = TRUE, s
 The first command retrieves the current KO-to-description table directly from
 the KEGG REST API. KEGG asks users to observe its academic-use conditions. The
 downloaded files are deliberately ignored by Git. The second command runs the
-complete pipeline in dependency order and writes the figures and a
-self-contained HTML notebook under `results/compiled_figures/`.
+complete pipeline in dependency order and writes the figures, supplementary
+Table S1 and Table S2 workbooks, and a self-contained HTML notebook under
+`results/compiled_figures/`.
 
 R Markdown requires Pandoc. Running from RStudio uses its bundled Pandoc; a
 command-line installation may need Pandoc added to `PATH`.
@@ -44,7 +45,7 @@ The pipeline was validated with R 4.5.1. Required CRAN packages are:
 install.packages(c(
   "ape", "broom", "cowplot", "dplyr", "drc", "ggnewscale", "ggplot2",
   "ggrepel", "knitr", "lme4", "lubridate", "magick", "maps",
-  "minpack.lm", "patchwork", "phytools", "purrr", "ranger", "rlang",
+  "minpack.lm", "openxlsx", "patchwork", "phytools", "purrr", "ranger", "rlang",
   "rmarkdown", "scales", "stringr", "tibble", "tidyr"
 ))
 ```
@@ -64,7 +65,8 @@ install.packages(c(
 - `upstream/`: optional coauthor workflows documenting how genome annotation,
   GTDB-Tk, and Pyseer outputs under `data/raw/` were generated.
 - `data/intermediate/`, `data/processed/`, and `results/`: reproducible,
-  Git-ignored outputs.
+  Git-ignored outputs, including the journal-ready `TableS1.xlsx` and
+  `TableS2.xlsx` workbooks.
 
 See [docs/PIPELINE.md](docs/PIPELINE.md) for dependencies and
 [docs/REPRODUCIBILITY_AUDIT.md](docs/REPRODUCIBILITY_AUDIT.md) for validation.

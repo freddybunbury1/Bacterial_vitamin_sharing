@@ -1,12 +1,12 @@
 # Reproducibility audit
 
-Audit date: 2026-08-26.
+Audit date: 2026-08-27.
 
 ## Inputs and asset
 
-- 1,081 staged files were present under `data/raw/` before the local KEGG KO
+- 1,082 staged files were present under `data/raw/` before the local KEGG KO
   acquisition output was added; no files were zero bytes.
-- All 1,065 entries recorded in `docs/manifests/file_manifest.csv` retained
+- All 1,066 entries recorded in `docs/manifests/file_manifest.csv` retained
   their recorded SHA-256 checksum after the public retrieval-script record was
   updated to its final stable-filename implementation.
 - `assets/figure_source/Figure1D_cartoon.svg` is byte-identical to the approved
@@ -18,15 +18,26 @@ Audit date: 2026-08-26.
 
 ## Clean-room validation
 
-Two independent temporary copies were created with zero files under
+Two independent temporary copies were initially created with zero files under
 `data/intermediate/`, `data/processed/`, and `results/`. Each was rendered from
 a working directory outside the repository. Both completed the raw-data-to-
-figures pipeline and produced identical 57-file result inventories:
+figures pipeline and produced identical inventories before supplementary-table
+export was added.
+
+A subsequent complete render on 2026-08-27 validated the count-neutral genome
+mapping filename and the Table S1–S2 exports. It produced a 59-file result
+inventory:
 
 - 25 PNG figures;
 - 25 PDF figures;
 - 6 CSV source/statistics tables;
+- 2 XLSX supplementary tables;
 - 1 self-contained HTML notebook.
+
+`TableS1.xlsx` was verified against the canonical metadata as 288 rows by 15
+columns and includes Notes documenting its 277 unique isolates. `TableS2.xlsx`
+was verified as 210 rows by 2 non-empty recipe columns and includes a provenance
+and presentation-processing Notes worksheet.
 
 All intermediate and processed files were byte-identical between the two runs.
 All PNG figures were byte-identical except the ImageMagick-composed Figure 1
