@@ -10,9 +10,8 @@ PARAMS_FILE="$SCRIPT_DIR/genome-pipeline-nf_combined_params_v2.yaml"
 CONFIG="$GENOME_ANNOTATION_DIR/configs/midway3.config"
 OUTDIR="${NF_OUTDIR:-$GENOME_ANNOTATION_DIR/output/genome_pipeline_nf}"
 
-# Set path to your Tower token file, e.g.: TOKEN_FILE="/path/to/token.sh"
-TOKEN_FILE="${TOKEN_FILE:-}"
-[[ -n "$TOKEN_FILE" ]] && source "$TOKEN_FILE"
+TOKEN_FILE="${TOKEN_FILE:-/home/janast/home/projects/token.sh}"
+[[ -f "$TOKEN_FILE" ]] && source "$TOKEN_FILE"
 
 export NXF_WORK="${NXF_WORK:-/scratch/midway3/janast/nf_work/genome_pipeline_nf}"
 
