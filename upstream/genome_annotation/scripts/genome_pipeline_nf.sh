@@ -23,7 +23,7 @@ TOWER_ARGS=()
 [[ -n "${TOWER_ACCESS_TOKEN:-}" ]] && TOWER_ARGS+=(-with-tower)
 
 nextflow run Janastw/genome_pipeline_nf \
-    -revision issue4-v6 \
+    -revision Janastw/issue4-v6 \
     -c "$CONFIG" \
     -params-file "$PARAMS_FILE" \
     --genome_manifest "$MANIFEST" \
