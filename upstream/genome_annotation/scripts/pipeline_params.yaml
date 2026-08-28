@@ -1,0 +1,11 @@
+# Database paths are HPC-specific shared resources on Midway3.
+# genome_manifest, priority_tsv, and outdir are overridden at runtime
+# by genome_pipeline_nf.sh using repo-relative paths.
+bakta_db: /project/cdonnat/shared/databases/bakta_latest/db
+genome_manifest: /project/cdonnat/Bacterial_vitamin_sharing/upstream/genome_annotation/inputs/manifest.tsv
+priority_tsv: /project/cdonnat/Bacterial_vitamin_sharing/upstream/genome_annotation/inputs/priority.tsv
+kofamscan_ko_list: /project/cdonnat/shared/databases/kofamscan_2/ko_list
+kofamscan_profiles: /project/cdonnat/shared/databases/kofamscan_2/profiles
+eggnogmapper_db: /project/cdonnat/shared/databases/eggnog_release_5.0.2
+checkm2_db: /project/cdonnat/shared/databases/CheckM2_database/uniref100.KO.1.dmnd
+outdir: /project/cdonnat/Bacterial_vitamin_sharing/upstream/genome_annotation/output/genome_pipeline_nf

@@ -6,7 +6,7 @@ GENOME_ANNOTATION_DIR="$(dirname "$SCRIPT_DIR")"
 
 MANIFEST="$GENOME_ANNOTATION_DIR/inputs/manifest.tsv"
 PRIORITY="$GENOME_ANNOTATION_DIR/inputs/priority.tsv"
-PARAMS_FILE="$SCRIPT_DIR/genome-pipeline-nf_combined_params_v2.yaml"
+PARAMS_FILE="$SCRIPT_DIR/pipeline_params.yaml"
 CONFIG="$GENOME_ANNOTATION_DIR/configs/midway3.config"
 OUTDIR="${NF_OUTDIR:-$GENOME_ANNOTATION_DIR/output/genome_pipeline_nf}"
 
