@@ -1,0 +1,8 @@
+bakta_db: /project/cdonnat/shared/databases/bakta_latest/db
+genome_manifest:  /project/cdonnat/microtrait/processed_data/genome_pipeline_nf/combined/inputs/v2/manifest.tsv
+priority_tsv: /project/cdonnat/microtrait/processed_data/genome_pipeline_nf/combined/inputs/v2/priority.tsv
+kofamscan_ko_list: /project/cdonnat/shared/databases/kofamscan_2/ko_list
+kofamscan_profiles: /project/cdonnat/shared/databases/kofamscan_2/profiles
+eggnogmapper_db: /project/cdonnat/shared/databases/eggnog_release_5.0.2
+checkm2_db: /project/cdonnat/shared/databases/CheckM2_database/uniref100.KO.1.dmnd
+outdir: /project/cdonnat/microtrait/processed_data/genome_pipeline_nf/combined/outputs/v2
