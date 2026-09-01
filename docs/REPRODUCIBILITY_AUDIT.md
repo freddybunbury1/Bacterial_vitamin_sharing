@@ -42,10 +42,11 @@ and presentation-processing Notes worksheet.
 ### Current working-tree validation
 
 A complete render on 2026-09-01 validated the addition of GTDB-Tk taxonomy to
-Table S1 and the new Table S3 export. It produced a 60-file result inventory:
+Table S1, the new Table S3 export, and promotion of the manuscript Figure 5 to
+the sole canonical Figure 5 output. It produced a 58-file result inventory:
 
-- 25 PNG figures;
-- 25 PDF figures;
+- 24 PNG figures;
+- 24 PDF figures;
 - 6 CSV source/statistics tables;
 - 3 XLSX supplementary tables;
 - 1 self-contained HTML notebook.

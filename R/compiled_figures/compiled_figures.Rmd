@@ -1371,13 +1371,9 @@ figure5_inputs <- c(
   ),
   B = file.path(
     project_dir, "data", "processed", "figure_source_data",
-    "b12_release_uptake_death_modeling", "fit_parameter_columns_source_03O_03P.csv"
-  ),
-  Bv2 = file.path(
-    project_dir, "data", "processed", "figure_source_data",
     "b12_release_uptake_death_modeling", "fit_parameter_columns_source_03H.csv"
   ),
-  Bv2_k = file.path(
+  B_k = file.path(
     project_dir, "data", "processed", "figure_source_data",
     "b12_release_uptake_death_modeling", "fit_parameter_columns_source_03C.csv"
   ),
@@ -1399,20 +1395,20 @@ figure5_inputs <- c(
 stop_if_missing(figure5_inputs)
 figure5_data <- lapply(figure5_inputs, read_figure_csv)
 
-for (panel in LETTERS[1:4]) {
+for (panel in c("A", "C", "D")) {
   figure5_data[[panel]]$b12_trait_group2 <- factor(
     figure5_data[[panel]]$b12_trait_group2,
     levels = trait_group_levels
   )
 }
-figure5_data$Bv2 <- figure5_data$Bv2 |>
+figure5_data$B <- figure5_data$B |>
   dplyr::mutate(
     b12_trait_group2 = factor(b12_trait_group2, levels = trait_group_levels),
     added_glucose_mM_C_factor = factor(
       added_glucose_mM_C_factor, levels = c("0", "10")
     )
   )
-figure5_data$Bv2_k <- figure5_data$Bv2_k |>
+figure5_data$B_k <- figure5_data$B_k |>
   dplyr::mutate(
     b12_trait_group2 = factor(b12_trait_group2, levels = trait_group_levels),
     added_glucose_mM_C_factor = factor(
@@ -1440,7 +1436,7 @@ exact_signed_rank_p <- function(difference) {
     )
   )
 }
-figure5v2_wilcoxon <- figure5_data$Bv2 |>
+figure5_wilcoxon <- figure5_data$B |>
   dplyr::select(strain_id, b12_trait_group2, added_glucose_mM_C, estimate) |>
   tidyr::pivot_wider(
     names_from = added_glucose_mM_C,
@@ -1458,7 +1454,7 @@ figure5v2_wilcoxon <- figure5_data$Bv2 |>
     label_y = 1.57
   )
 
-figure5v2_k_paired <- figure5_data$Bv2_k |>
+figure5_k_paired <- figure5_data$B_k |>
   dplyr::select(strain_id, b12_trait_group2, added_glucose_mM_C, estimate) |>
   tidyr::pivot_wider(
     names_from = added_glucose_mM_C,
@@ -1470,7 +1466,7 @@ figure5v2_k_paired <- figure5_data$Bv2_k |>
     glucose_0 > 0, glucose_10 > 0
   )
 
-figure5v2_k_statistics <- figure5v2_k_paired |>
+figure5_k_statistics <- figure5_k_paired |>
   dplyr::group_by(b12_trait_group2) |>
   dplyr::summarise(
     n_strains = dplyr::n(),
@@ -2611,31 +2607,8 @@ figure5a <- ggplot2::ggplot(
     legend.key.height = grid::unit(0.7, "lines")
   )
 
-figure5b_limits <- range(
-  c(figure5_data$B$r_glucose_0, figure5_data$B$r_glucose_10), na.rm = TRUE
-)
-figure5b_pad <- diff(figure5b_limits) * 0.05
-figure5b_limits <- figure5b_limits + c(-figure5b_pad, figure5b_pad)
-
 figure5b <- ggplot2::ggplot(
   figure5_data$B,
-  ggplot2::aes(x = r_glucose_0, y = r_glucose_10, color = b12_trait_group2)
-) +
-  ggplot2::geom_abline(
-    slope = 1, intercept = 0, linetype = "dashed", color = "grey45", linewidth = 0.4
-  ) +
-  ggplot2::geom_point(size = 1.7, alpha = 0.85) +
-  ggplot2::scale_color_manual(values = trait_group_colors, breaks = trait_group_levels) +
-  ggplot2::coord_equal(xlim = figure5b_limits, ylim = figure5b_limits) +
-  ggplot2::labs(
-    x = "release rate: r (no glucose)",
-    y = "release rate: r (+ glucose)"
-  ) +
-  figure5_theme +
-  ggplot2::theme(legend.position = "none")
-
-figure5b_v2 <- ggplot2::ggplot(
-  figure5_data$Bv2,
   ggplot2::aes(x = added_glucose_mM_C_factor, y = estimate)
 ) +
   ggplot2::geom_boxplot(
@@ -2649,12 +2622,12 @@ figure5b_v2 <- ggplot2::ggplot(
     size = 1.35, alpha = 0.85
   ) +
   ggplot2::geom_segment(
-    data = figure5v2_wilcoxon,
+    data = figure5_wilcoxon,
     ggplot2::aes(x = 1, xend = 2, y = segment_y, yend = segment_y),
     inherit.aes = FALSE, color = "black", linewidth = 0.4
   ) +
   ggplot2::geom_text(
-    data = figure5v2_wilcoxon,
+    data = figure5_wilcoxon,
     ggplot2::aes(x = 1.5, y = label_y, label = p_label),
     inherit.aes = FALSE, color = "black", size = 2.5, vjust = 0
   ) +
@@ -2751,17 +2724,6 @@ figure5 <- (
 ) + patchwork::plot_layout(heights = c(1, 1.2)) &
   ggplot2::theme(plot.tag = ggplot2::element_text(face = "bold", size = 12.8))
 
-figure5v2_top <- (
-  (figure5a + ggplot2::labs(tag = "A")) |
-    patchwork::wrap_elements(full = figure5b_v2 + ggplot2::labs(tag = "B"))
-) + patchwork::plot_layout(widths = c(2.2, 1)) &
-  ggplot2::theme(plot.margin = ggplot2::margin(t = 5.5, r = 5.5, b = 0, l = 5.5))
-figure5v2 <- (
-  patchwork::wrap_elements(full = figure5v2_top) /
-    patchwork::wrap_elements(full = figure5_bottom)
-) + patchwork::plot_layout(heights = c(1, 1.2)) &
-  ggplot2::theme(plot.tag = ggplot2::element_text(face = "bold", size = 12.8))
-
 figure5_png <- file.path(output_dir, "Figure5.png")
 figure5_pdf <- file.path(output_dir, "Figure5.pdf")
 ggplot2::ggsave(figure5_png, figure5, width = 7.1, height = 4.59, dpi = 400, bg = "white")
@@ -2769,27 +2731,16 @@ ggplot2::ggsave(
   figure5_pdf, figure5, width = 7.1, height = 4.59,
   device = grDevices::cairo_pdf
 )
-figure5v2_png <- file.path(output_dir, "Figure5v2.png")
-figure5v2_pdf <- file.path(output_dir, "Figure5v2.pdf")
-ggplot2::ggsave(
-  figure5v2_png, figure5v2, width = 7.1, height = 4.59,
-  dpi = 400, bg = "white"
-)
-ggplot2::ggsave(
-  figure5v2_pdf, figure5v2, width = 7.1, height = 4.59,
-  device = grDevices::cairo_pdf
-)
 figure5
-figure5v2
 ```
 
 ## Additional Figure 5 subpanels
 
 ```{r additional-figure5-subpanels, fig.width=3.2, fig.height=2.4, out.width="55%"}
-figure5_k_max <- max(figure5_data$Bv2_k$estimate, na.rm = TRUE)
-figure5_k_min <- min(figure5_data$Bv2_k$estimate[figure5_data$Bv2_k$estimate > 0], na.rm = TRUE)
+figure5_k_max <- max(figure5_data$B_k$estimate, na.rm = TRUE)
+figure5_k_min <- min(figure5_data$B_k$estimate[figure5_data$B_k$estimate > 0], na.rm = TRUE)
 
-figure5v2_k_statistics <- figure5v2_k_statistics |>
+figure5_k_statistics <- figure5_k_statistics |>
   dplyr::mutate(
     segment_y_linear = figure5_k_max * 1.10,
     label_y_linear = figure5_k_max * 1.14,
@@ -2799,7 +2750,7 @@ figure5v2_k_statistics <- figure5v2_k_statistics |>
 
 make_figure5_k_subpanel <- function(log_y = FALSE) {
   p <- ggplot2::ggplot(
-    figure5_data$Bv2_k,
+    figure5_data$B_k,
     ggplot2::aes(x = added_glucose_mM_C_factor, y = estimate)
   ) +
     ggplot2::geom_boxplot(
@@ -2817,7 +2768,7 @@ make_figure5_k_subpanel <- function(log_y = FALSE) {
       size = 1.35, alpha = 0.85
     ) +
     ggplot2::geom_segment(
-      data = figure5v2_k_statistics,
+      data = figure5_k_statistics,
       ggplot2::aes(
         x = 1, xend = 2,
         y = if (log_y) segment_y_log else segment_y_linear,
@@ -2826,7 +2777,7 @@ make_figure5_k_subpanel <- function(log_y = FALSE) {
       inherit.aes = FALSE, color = "black", linewidth = 0.4
     ) +
     ggplot2::geom_text(
-      data = figure5v2_k_statistics,
+      data = figure5_k_statistics,
       ggplot2::aes(
         x = 1.5,
         y = if (log_y) label_y_log else label_y_linear,
@@ -2902,7 +2853,7 @@ ggplot2::ggsave(
   device = grDevices::cairo_pdf
 )
 utils::write.csv(
-  figure5v2_k_statistics,
+  figure5_k_statistics,
   file.path(additional_subpanel_dir, "05_1_05_2_uptake_rate_paired_tests.csv"),
   row.names = FALSE
 )
@@ -4212,7 +4163,6 @@ figure_outputs <- c(
   figure3_png, figure3_pdf,
   figure4_png, figure4_pdf,
   figure5_png, figure5_pdf,
-  figure5v2_png, figure5v2_pdf,
   figure_s1_png, figure_s1_pdf,
   figure_s2_png, figure_s2_pdf,
   figure_s3_png, figure_s3_pdf,
