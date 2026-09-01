@@ -6,7 +6,7 @@
   single canonical two-stage kinetic model, and exports empirical/model figure
   sources.
 - `growth_dynamics_b12_methionine_analysis.R`: models blank OD, summarizes
-  growth curves, and exports the Figure S2 comparison.
+  growth curves, and exports the Figure S3 comparison.
 - `gtdbtk_tree_analysis.R`: parses GTDB taxonomy and builds the split-rooted
   study-genome and complete-trait trees.
 - `b12_trait_classification_analysis.R`: constructs the KO/phenotype input,

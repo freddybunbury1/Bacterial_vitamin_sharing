@@ -19,7 +19,7 @@ the following fixed order:
 | --- | --- | --- |
 | Trait survey | survey intermediates, canonical strain metadata | strain traits, GWA phenotypes, survey figure sources |
 | GTDB tree | GTDB summary/tree, strain-to-genome map, trait summary | public taxonomy, study-genome tree, complete-trait tree, tip metadata |
-| Growth dynamics | growth intermediate | growth metrics and Figure S2 source |
+| Growth dynamics | growth intermediate | growth metrics and Figure S3 source |
 | Release/uptake/death | release intermediates, trait summary, GTDB taxonomy | empirical tables, uptake/release model fits, compact figure sources |
 | Trait classification | KO matrix, traits, GTDB taxonomy/tree, KEGG mapping, raw GWA summaries | matched validation results, nulls, importance, combined GWA table, compact figure sources |
 
@@ -35,8 +35,11 @@ working directory is elsewhere.
 
 ## Optional upstream workflows
 
-Table S1 is generated directly from the canonical bacterial strain metadata,
-and Table S2 is generated from the canonical media-recipe CSV. The workflows
+Table S1 joins the canonical bacterial strain metadata to GTDB-Tk taxonomy
+from phylum through genus,
+Table S2 is generated from the canonical media-recipe CSV, and Table S3 joins
+the selected release/uptake/death culture wells to GTDB-Tk taxonomy and the
+canonical figure-panel strain labels. The workflows
 under `upstream/` document how coauthor analyses produced the
 fixed genome, GTDB-Tk, and Pyseer inputs under `data/raw/`. They are deliberately
 separate from the manuscript R pipeline and are not sourced by

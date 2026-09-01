@@ -19,7 +19,7 @@ The first command retrieves the current KO-to-description table directly from
 the KEGG REST API. KEGG asks users to observe its academic-use conditions. The
 downloaded files are deliberately ignored by Git. The second command runs the
 complete pipeline in dependency order and writes the figures, supplementary
-Table S1 and Table S2 workbooks, and a self-contained HTML notebook under
+Table S1, Table S2, and Table S3 workbooks, and a self-contained HTML notebook under
 `results/compiled_figures/`.
 
 R Markdown requires Pandoc. Running from RStudio uses its bundled Pandoc; a
@@ -65,8 +65,8 @@ install.packages(c(
 - `upstream/`: optional coauthor workflows documenting how genome annotation,
   GTDB-Tk, and Pyseer outputs under `data/raw/` were generated.
 - `data/intermediate/`, `data/processed/`, and `results/`: reproducible,
-  Git-ignored outputs, including the journal-ready `TableS1.xlsx` and
-  `TableS2.xlsx` workbooks.
+  Git-ignored outputs, including the journal-ready `TableS1.xlsx`,
+  `TableS2.xlsx`, and `TableS3.xlsx` workbooks.
 
 See [docs/PIPELINE.md](docs/PIPELINE.md) for dependencies and
 [docs/REPRODUCIBILITY_AUDIT.md](docs/REPRODUCIBILITY_AUDIT.md) for validation.

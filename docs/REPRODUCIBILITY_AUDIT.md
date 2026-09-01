@@ -39,6 +39,29 @@ columns and includes Notes documenting its 277 unique isolates. `TableS2.xlsx`
 was verified as 210 rows by 2 non-empty recipe columns and includes a provenance
 and presentation-processing Notes worksheet.
 
+### Current working-tree validation
+
+A complete render on 2026-09-01 validated the addition of GTDB-Tk taxonomy to
+Table S1 and the new Table S3 export. It produced a 60-file result inventory:
+
+- 25 PNG figures;
+- 25 PDF figures;
+- 6 CSV source/statistics tables;
+- 3 XLSX supplementary tables;
+- 1 self-contained HTML notebook.
+
+`TableS1.xlsx` was verified as 288 rows by 20 columns. Its five GTDB-Tk
+taxonomy columns populate 233 physical-position rows representing 229 unique
+isolates; unmatched rows remain blank. `TableS2.xlsx` remained 210 rows by 2
+non-empty recipe columns. `TableS3.xlsx` was verified as 24 rows by 10 columns:
+23 bacterial strains plus the `blank` control. All non-control rows have
+complete GTDB-Tk phylum-to-genus taxonomy, trait group, ordinal, and panel
+label. The blank row retains culture well B12 and has no taxonomy, trait,
+ordinal, or panel-label values.
+
+This was a full render of the release working tree, not a new independent
+clean-room validation.
+
 All intermediate and processed files were byte-identical between the two runs.
 All PNG figures were byte-identical except the ImageMagick-composed Figure 1
 container; a pixel comparison of the two Figure 1 PNGs reported zero differing
@@ -58,6 +81,6 @@ full-tree classifiers and 6 for the two total-B12-filtered classifiers.
 Pixel comparisons against the working manuscript output were identical for 18
 of 23 compiled PNGs. Expected differences occurred in Figure 2, Figure S7, and
 Figure S8 because the public classifier uses the corrected order-matched random
-fold design. Figure 3 and Figure S2 had only 274 and 38 changed pixels,
+fold design. Figure 3 and Figure S3 had only 274 and 38 changed pixels,
 respectively, associated with the curated public metadata/strain identifiers.
 All other compiled PNGs had zero pixel differences.

@@ -62,6 +62,7 @@ dir.create(additional_subpanel_dir, recursive = TRUE, showWarnings = FALSE)
 
 table_s1_path <- file.path(output_dir, "TableS1.xlsx")
 table_s2_path <- file.path(output_dir, "TableS2.xlsx")
+table_s3_path <- file.path(output_dir, "TableS3.xlsx")
 
 figure1_data_inputs <- c(
   tree = file.path(
@@ -107,17 +108,46 @@ standardize_panel <- function(input, output, width_px, height_px) {
 }
 ```
 
+## Run the raw-data-to-analysis pipeline
+
+The stages below are executed in isolated environments and in their explicit
+dependency order. The KEGG KO list must have been acquired once with
+`R/cleaning/download_kegg_ko_mapping.R`; it is not downloaded automatically.
+
+```{r run-production-pipeline, include=FALSE}
+pipeline_scripts <- c(
+  "R/cleaning/b12_trait_survey_preprocess.R",
+  "R/cleaning/b12_release_uptake_death_preprocess.R",
+  "R/cleaning/growth_dynamics_b12_methionine_preprocess.R",
+  "R/analysis/b12_trait_survey_analysis.R",
+  "R/analysis/gtdbtk_tree_analysis.R",
+  "R/analysis/growth_dynamics_b12_methionine_analysis.R",
+  "R/analysis/b12_release_uptake_death_analysis.R",
+  "R/analysis/b12_trait_classification_analysis.R"
+)
+for (script in pipeline_scripts) {
+  script_path <- file.path(project_dir, script)
+  if (!file.exists(script_path)) stop("Missing production script: ", script_path)
+  sys.source(script_path, envir = new.env(parent = globalenv()), chdir = FALSE)
+}
+```
+
 ## Export supplementary Table S1
 
-Table S1 is generated directly from the canonical strain metadata. The workbook
-retains every physical strain-bank or experimental-array position and includes
-a Notes worksheet explaining the relationship between rows and unique isolates.
+Table S1 combines the canonical strain metadata with GTDB-Tk taxonomy from
+phylum through genus. The workbook retains every physical strain-bank or
+experimental-array position and includes a Notes worksheet explaining the
+relationship between rows and unique isolates.
 
 ```{r export-table-s1, include=FALSE}
 strain_metadata_path <- file.path(
   project_dir, "data", "raw", "metadata_strains", "bacterial_strain_metadata.csv"
 )
-stop_if_missing(strain_metadata_path)
+table_s1_gtdb_metadata_path <- file.path(
+  project_dir, "data", "processed", "gtdbtk_tree_analysis",
+  "gtdbtk_bac120_study_genomes_tip_metadata.csv"
+)
+stop_if_missing(c(strain_metadata_path, table_s1_gtdb_metadata_path))
 
 strain_metadata <- utils::read.csv(
   strain_metadata_path,
@@ -125,6 +155,27 @@ strain_metadata <- utils::read.csv(
   stringsAsFactors = FALSE,
   na.strings = c("", "NA")
 )
+table_s1_gtdb_metadata <- utils::read.csv(
+  table_s1_gtdb_metadata_path,
+  check.names = FALSE,
+  stringsAsFactors = FALSE,
+  na.strings = c("", "NA")
+)
+table_s1_taxonomy_columns <- c(
+  "gtdb_phylum", "gtdb_class", "gtdb_order", "gtdb_family", "gtdb_genus"
+)
+if (!all(c("tip_label", table_s1_taxonomy_columns) %in% names(table_s1_gtdb_metadata))) {
+  stop("Table S1 GTDB-Tk metadata lacks the strain ID or required taxonomy columns.")
+}
+if (anyDuplicated(table_s1_gtdb_metadata$tip_label)) {
+  stop("Table S1 GTDB-Tk metadata contains duplicated strain IDs.")
+}
+strain_metadata <- strain_metadata |>
+  dplyr::left_join(
+    table_s1_gtdb_metadata |>
+      dplyr::select(tip_label, dplyr::all_of(table_s1_taxonomy_columns)),
+    by = c("strain_id" = "tip_label")
+  )
 
 control_ids <- c("blank", "unknown")
 normalized_ids <- tolower(trimws(strain_metadata$strain_id))
@@ -135,6 +186,10 @@ n_unique_isolates <- length(unique(strain_metadata$strain_id[is_isolate]))
 n_isolate_rows <- sum(is_isolate)
 n_control_rows <- sum(!is_isolate)
 n_duplicate_placements <- n_isolate_rows - n_unique_isolates
+n_taxonomy_rows <- sum(!is.na(strain_metadata$gtdb_phylum))
+n_taxonomy_isolates <- length(unique(
+  strain_metadata$strain_id[is_isolate & !is.na(strain_metadata$gtdb_phylum)]
+))
 
 if (n_unique_isolates != 277L) {
   stop(
@@ -156,21 +211,35 @@ table_s1_notes <- data.frame(
   Item = c(
     "Table title",
     "Canonical source",
+    "Taxonomy source",
     "Row interpretation",
     "Unique isolates",
+    "GTDB-Tk coverage",
     "Environmental composition",
     "Duplicate placements",
     "Control positions",
     "Missing values"
   ),
   Description = c(
-    "Table S1. Bacterial isolate, collection, and experimental-array metadata.",
+    paste0(
+      "Table S1. Bacterial isolate, collection, experimental-array, and ",
+      "GTDB-Tk taxonomy metadata."
+    ),
     "data/raw/metadata_strains/bacterial_strain_metadata.csv",
+    paste0(
+      "data/processed/gtdbtk_tree_analysis/",
+      "gtdbtk_bac120_study_genomes_tip_metadata.csv"
+    ),
     paste0(
       "The ", nrow(strain_metadata),
       " rows represent physical strain-bank or experimental-array positions, not necessarily unique isolates."
     ),
     as.character(n_unique_isolates),
+    paste0(
+      n_taxonomy_rows, " of ", nrow(strain_metadata), " physical-position rows and ",
+      n_taxonomy_isolates, " of ", n_unique_isolates,
+      " unique biological isolates have GTDB-Tk taxonomy from phylum through genus."
+    ),
     environment_summary,
     paste0(
       n_duplicate_placements,
@@ -199,7 +268,12 @@ table_s1_dictionary <- data.frame(
     "Collection longitude in decimal degrees.",
     "Recorded isolation conditions or description.",
     "Broad environmental category: soil, freshwater, or marine.",
-    "Environment Ontology identifier for the broad environment."
+    "Environment Ontology identifier for the broad environment.",
+    "GTDB-Tk phylum assignment; blank when no study-genome assignment is available.",
+    "GTDB-Tk class assignment; blank when no study-genome assignment is available.",
+    "GTDB-Tk order assignment; blank when no study-genome assignment is available.",
+    "GTDB-Tk family assignment; blank when no study-genome assignment is available.",
+    "GTDB-Tk genus assignment; blank when no study-genome assignment is available."
   ),
   stringsAsFactors = FALSE
 )
@@ -221,7 +295,10 @@ openxlsx::setColWidths(
   table_s1_workbook,
   "Bacterial strain metadata",
   cols = seq_along(strain_metadata),
-  widths = c(14, 29, 14, 30, 12, 22, 22, 24, 30, 16, 18, 18, 34, 20, 17)
+  widths = c(
+    14, 29, 14, 30, 12, 22, 22, 24, 30, 16, 18, 18, 34, 20, 17,
+    19, 23, 20, 23, 20
+  )
 )
 
 title_style <- openxlsx::createStyle(fontSize = 14, textDecoration = "bold")
@@ -229,7 +306,10 @@ section_style <- openxlsx::createStyle(fontSize = 11, textDecoration = "bold")
 openxlsx::writeData(
   table_s1_workbook,
   "Notes",
-  "Table S1. Bacterial isolate, collection, and experimental-array metadata",
+  paste0(
+    "Table S1. Bacterial isolate, collection, experimental-array, and ",
+    "GTDB-Tk taxonomy metadata"
+  ),
   startRow = 1,
   startCol = 1
 )
@@ -411,28 +491,245 @@ openxlsx::addStyle(
 openxlsx::saveWorkbook(table_s2_workbook, table_s2_path, overwrite = TRUE)
 ```
 
-## Run the raw-data-to-analysis pipeline
+## Export supplementary Table S3
 
-The stages below are executed in isolated environments and in their explicit
-dependency order. The KEGG KO list must have been acquired once with
-`R/cleaning/download_kegg_ko_mapping.R`; it is not downloaded automatically.
+Table S3 links the release/uptake/death experimental-array wells to the
+alphabetical within-trait-group strain labels used in Figures 4 and 5 and the
+associated supplementary figures. GTDB-Tk taxonomy is reported from phylum to
+genus. The blank control is retained with only its strain ID and culture well.
 
-```{r run-production-pipeline, include=FALSE}
-pipeline_scripts <- c(
-  "R/cleaning/b12_trait_survey_preprocess.R",
-  "R/cleaning/b12_release_uptake_death_preprocess.R",
-  "R/cleaning/growth_dynamics_b12_methionine_preprocess.R",
-  "R/analysis/b12_trait_survey_analysis.R",
-  "R/analysis/gtdbtk_tree_analysis.R",
-  "R/analysis/growth_dynamics_b12_methionine_analysis.R",
-  "R/analysis/b12_release_uptake_death_analysis.R",
-  "R/analysis/b12_trait_classification_analysis.R"
+```{r export-table-s3, include=FALSE}
+selected_strains_path <- file.path(
+  project_dir, "data", "raw", "b12_release_uptake_death", "metadata",
+  "strains_selected_b12_release_uptake_20260520.csv"
 )
-for (script in pipeline_scripts) {
-  script_path <- file.path(project_dir, script)
-  if (!file.exists(script_path)) stop("Missing production script: ", script_path)
-  sys.source(script_path, envir = new.env(parent = globalenv()), chdir = FALSE)
+gtdb_tip_metadata_path <- file.path(
+  project_dir, "data", "processed", "gtdbtk_tree_analysis",
+  "gtdbtk_bac120_study_genomes_tip_metadata.csv"
+)
+stop_if_missing(c(selected_strains_path, gtdb_tip_metadata_path))
+
+selected_strains <- utils::read.csv(
+  selected_strains_path,
+  check.names = FALSE,
+  stringsAsFactors = FALSE,
+  na.strings = c("", "NA")
+)
+gtdb_tip_metadata <- utils::read.csv(
+  gtdb_tip_metadata_path,
+  check.names = FALSE,
+  stringsAsFactors = FALSE,
+  na.strings = c("", "NA")
+)
+
+table_s3_selected_columns <- c("strain_id", "culture_well")
+table_s3_taxonomy_columns <- c(
+  "gtdb_phylum", "gtdb_class", "gtdb_order", "gtdb_family", "gtdb_genus"
+)
+table_s3_metadata_columns <- c(
+  "tip_label", table_s3_taxonomy_columns, "b12_trait_group2"
+)
+if (!all(table_s3_selected_columns %in% names(selected_strains))) {
+  stop("Table S3 strain selection lacks strain_id or culture_well.")
 }
+if (!all(table_s3_metadata_columns %in% names(gtdb_tip_metadata))) {
+  stop("Table S3 GTDB-Tk metadata lacks required taxonomy or trait columns.")
+}
+if (anyDuplicated(selected_strains$strain_id)) {
+  stop("Table S3 strain selection contains duplicated strain IDs.")
+}
+
+table_s3_data <- selected_strains |>
+  dplyr::select(dplyr::all_of(table_s3_selected_columns)) |>
+  dplyr::left_join(
+    gtdb_tip_metadata |>
+      dplyr::select(dplyr::all_of(table_s3_metadata_columns)),
+    by = c("strain_id" = "tip_label")
+  )
+
+table_s3_blank <- table_s3_data$strain_id == "blank"
+if (sum(table_s3_blank) != 1L) {
+  stop("Table S3 requires exactly one strain_id == 'blank' control row.")
+}
+if (anyDuplicated(table_s3_data$strain_id)) {
+  stop("Table S3 GTDB-Tk join produced duplicated strain IDs.")
+}
+if (any(!stats::complete.cases(
+  table_s3_data[!table_s3_blank, c(table_s3_taxonomy_columns, "b12_trait_group2")]
+))) {
+  stop("At least one non-blank Table S3 strain lacks taxonomy or trait-group metadata.")
+}
+
+table_s3_strain_ordinals <- table_s3_data |>
+  dplyr::filter(.data$strain_id != "blank") |>
+  dplyr::arrange(.data$b12_trait_group2, .data$strain_id) |>
+  dplyr::group_by(.data$b12_trait_group2) |>
+  dplyr::transmute(
+    strain_id,
+    trait_group2_strain_ordinal = dplyr::row_number()
+  ) |>
+  dplyr::ungroup() |>
+  dplyr::select(strain_id, trait_group2_strain_ordinal)
+
+table_s3_data <- table_s3_data |>
+  dplyr::left_join(table_s3_strain_ordinals, by = "strain_id") |>
+  dplyr::mutate(
+    trait_group2_strain_label = dplyr::if_else(
+      .data$strain_id == "blank",
+      NA_character_,
+      paste(
+        .data$b12_trait_group2,
+        .data$trait_group2_strain_ordinal,
+        sep = " no."
+      )
+    )
+  ) |>
+  dplyr::select(
+    strain_id, culture_well,
+    dplyr::all_of(table_s3_taxonomy_columns),
+    b12_trait_group2, trait_group2_strain_ordinal,
+    trait_group2_strain_label
+  )
+
+table_s3_expected_group_sizes <- c(provider = 8L, reclaimer = 8L, retainer = 7L)
+table_s3_observed_group_sizes <- table(
+  table_s3_data$b12_trait_group2[!table_s3_blank]
+)
+if (!identical(
+  as.integer(table_s3_observed_group_sizes[names(table_s3_expected_group_sizes)]),
+  unname(table_s3_expected_group_sizes)
+)) {
+  stop("Table S3 expected 8 providers, 8 reclaimers, and 7 retainers.")
+}
+if (any(!is.na(table_s3_data[table_s3_blank, setdiff(names(table_s3_data), c(
+  "strain_id", "culture_well"
+))]))) {
+  stop("Table S3 blank-control metadata columns must remain NA.")
+}
+
+table_s3_notes <- data.frame(
+  Item = c(
+    "Table title", "Canonical strain-selection source", "Taxonomy and trait source",
+    "Row interpretation", "Panel-label rule", "Blank control", "Missing values"
+  ),
+  Description = c(
+    paste0(
+      "Table S3. Strain identities, GTDB-Tk taxonomy, B12 trait groups, and ",
+      "panel labels for release, uptake, and death experiments."
+    ),
+    paste0(
+      "data/raw/b12_release_uptake_death/metadata/",
+      "strains_selected_b12_release_uptake_20260520.csv"
+    ),
+    paste0(
+      "data/processed/gtdbtk_tree_analysis/",
+      "gtdbtk_bac120_study_genomes_tip_metadata.csv"
+    ),
+    paste0(
+      nrow(table_s3_data), " rows represent 23 bacterial strains and one blank ",
+      "control in the release/uptake/death experimental array."
+    ),
+    paste0(
+      "Within each b12_trait_group2, strain IDs are sorted alphabetically and ",
+      "numbered from 1. Labels are formatted as '<trait group> no.<ordinal>' and ",
+      "are used in Figures 4 and 5 and associated supplementary figures."
+    ),
+    paste0(
+      "The strain_id == 'blank' row is retained to document its culture well; ",
+      "taxonomy, trait group, ordinal, and panel label are not applicable."
+    ),
+    "Blank cells indicate values that are not applicable."
+  ),
+  stringsAsFactors = FALSE
+)
+table_s3_dictionary <- data.frame(
+  Column = names(table_s3_data),
+  Definition = c(
+    "Stable bacterial strain or blank-control identifier.",
+    "Well position in the release/uptake/death experimental culture array.",
+    "GTDB-Tk phylum assignment.",
+    "GTDB-Tk class assignment.",
+    "GTDB-Tk order assignment.",
+    "GTDB-Tk family assignment.",
+    "GTDB-Tk genus assignment.",
+    "B12 phenotype class: provider, reclaimer, or retainer.",
+    "Alphabetical ordinal of the strain ID within its B12 trait group.",
+    "Trait-group-plus-ordinal label used for strain panels in the figures."
+  ),
+  stringsAsFactors = FALSE
+)
+
+table_s3_workbook <- openxlsx::createWorkbook()
+openxlsx::addWorksheet(table_s3_workbook, "Figure strain key")
+openxlsx::addWorksheet(table_s3_workbook, "Notes")
+openxlsx::writeDataTable(
+  table_s3_workbook,
+  "Figure strain key",
+  table_s3_data,
+  tableStyle = "TableStyleMedium2",
+  withFilter = TRUE,
+  keepNA = FALSE
+)
+openxlsx::freezePane(table_s3_workbook, "Figure strain key", firstRow = TRUE)
+openxlsx::setColWidths(
+  table_s3_workbook,
+  "Figure strain key",
+  cols = seq_along(table_s3_data),
+  widths = c(15, 14, 19, 23, 20, 23, 20, 19, 29, 29)
+)
+openxlsx::writeData(
+  table_s3_workbook,
+  "Notes",
+  paste0(
+    "Table S3. Strain identities, GTDB-Tk taxonomy, B12 trait groups, ",
+    "and figure-panel labels"
+  ),
+  startRow = 1,
+  startCol = 1
+)
+openxlsx::addStyle(table_s3_workbook, "Notes", title_style, rows = 1, cols = 1)
+openxlsx::writeDataTable(
+  table_s3_workbook,
+  "Notes",
+  table_s3_notes,
+  startRow = 3,
+  tableStyle = "TableStyleMedium2",
+  withFilter = FALSE
+)
+table_s3_dictionary_start_row <- nrow(table_s3_notes) + 6L
+openxlsx::writeData(
+  table_s3_workbook,
+  "Notes",
+  "Column definitions",
+  startRow = table_s3_dictionary_start_row,
+  startCol = 1
+)
+openxlsx::addStyle(
+  table_s3_workbook,
+  "Notes",
+  section_style,
+  rows = table_s3_dictionary_start_row,
+  cols = 1
+)
+openxlsx::writeDataTable(
+  table_s3_workbook,
+  "Notes",
+  table_s3_dictionary,
+  startRow = table_s3_dictionary_start_row + 1L,
+  tableStyle = "TableStyleMedium2",
+  withFilter = FALSE
+)
+openxlsx::setColWidths(table_s3_workbook, "Notes", cols = 1, widths = 32)
+openxlsx::setColWidths(table_s3_workbook, "Notes", cols = 2, widths = 95)
+openxlsx::addStyle(
+  table_s3_workbook,
+  "Notes",
+  wrap_style,
+  rows = 1:(table_s3_dictionary_start_row + nrow(table_s3_dictionary) + 1L),
+  cols = 1:2,
+  gridExpand = TRUE
+)
+openxlsx::saveWorkbook(table_s3_workbook, table_s3_path, overwrite = TRUE)
 ```
 
 ## Minimal Figure 1 plotting functions
@@ -1027,14 +1324,13 @@ figure4_data$D$trait_group2 <- factor(
   levels = trait_group_levels
 )
 
-# Assign strain ordinals alphabetically within each trait group once, then join
-# them to every Figure 4 panel. Expected group sizes are 7, 8, and 8.
-figure4_strain_ordinals <- figure4_data$B |>
-  dplyr::distinct(b12_trait_group2, strain_id) |>
-  dplyr::arrange(b12_trait_group2, strain_id) |>
-  dplyr::group_by(b12_trait_group2) |>
-  dplyr::mutate(trait_group2_strain_ordinal = dplyr::row_number()) |>
-  dplyr::ungroup()
+# Reuse Table S3 as the canonical mapping between strain IDs and the
+# alphabetical within-trait-group ordinals shown in all strain-panel labels.
+figure4_strain_ordinals <- table_s3_data |>
+  dplyr::filter(.data$strain_id != "blank") |>
+  dplyr::select(
+    b12_trait_group2, strain_id, trait_group2_strain_ordinal
+  )
 stopifnot(identical(
   as.integer(table(figure4_strain_ordinals$b12_trait_group2)[trait_group_levels]),
   c(7L, 8L, 8L)
@@ -1308,21 +1604,21 @@ utils::write.csv(
 
 ## Preprocess Figures S2-S5
 
-S3 reuses `tree`, `tip_metadata`, and `panel_a_data`; S4-S5 reuse the single
+S2 reuses `tree`, `tip_metadata`, and `panel_a_data`; S4-S5 reuse the single
 `strain_phenotypes` table. Thus the GTDB-Tk tree and strain-level B12 phenotype
 data are not loaded a second time.
 
 ```{r preprocess-figures-s2-s5}
-figure_s2_input <- file.path(
+figure_s3_input <- file.path(
   project_dir, "data", "processed", "growth_dynamics_b12_methionine",
   "07A_mean_auc_B0_M0_vs_B10_M0_source.csv"
 )
-stop_if_missing(figure_s2_input)
-figure_s2_data <- read_figure_csv(figure_s2_input)
-figure_s2_labels <- dplyr::filter(figure_s2_data, strain_id == "Ecoli_metE")
+stop_if_missing(figure_s3_input)
+figure_s3_data <- read_figure_csv(figure_s3_input)
+figure_s3_labels <- dplyr::filter(figure_s3_data, strain_id == "Ecoli_metE")
 
-# S3 is the same complete GTDB-Tk tree object used to generate Figure 1A.
-figure_s3_data <- panel_a_data
+# S2 is the same complete GTDB-Tk tree object used to generate Figure 1A.
+figure_s2_data <- panel_a_data
 
 figure_s4_data <- list(
   A = strain_phenotypes |>
@@ -2701,11 +2997,11 @@ ggplot2::ggsave(
 figure_s1
 ```
 
-## Figure S2
+## Figure S3
 
-```{r assemble-figure-s2, fig.width=4.5, fig.height=5.1, out.width="70%"}
-figure_s2 <- ggplot2::ggplot(
-  figure_s2_data,
+```{r assemble-figure-s3, fig.width=4.5, fig.height=5.1, out.width="70%"}
+figure_s3 <- ggplot2::ggplot(
+  figure_s3_data,
   ggplot2::aes(mean_auc_B0_M0, mean_auc_B10_M0)
 ) +
   ggplot2::geom_abline(
@@ -2722,7 +3018,7 @@ figure_s2 <- ggplot2::ggplot(
   ) +
   ggplot2::geom_point(alpha = 0.45, size = 1.8, color = "#2E6F95") +
   ggplot2::geom_text(
-    data = figure_s2_labels, label = "E. coli metE",
+    data = figure_s3_labels, label = "E. coli metE",
     hjust = 1.1, vjust = -0.7, size = 3, show.legend = FALSE
   ) +
   ggplot2::scale_x_log10(limits = c(0.1, NA)) +
@@ -2736,58 +3032,79 @@ figure_s2 <- ggplot2::ggplot(
     panel.grid.minor = ggplot2::element_blank()
   )
 
-figure_s2_png <- file.path(output_dir, "FigureS2.png")
-figure_s2_pdf <- file.path(output_dir, "FigureS2.pdf")
-ggplot2::ggsave(figure_s2_png, figure_s2, width = 4.5, height = 5.1, dpi = 400, bg = "white")
-ggplot2::ggsave(figure_s2_pdf, figure_s2, width = 4.5, height = 5.1, device = grDevices::cairo_pdf)
-figure_s2
+figure_s3_png <- file.path(output_dir, "FigureS3.png")
+figure_s3_pdf <- file.path(output_dir, "FigureS3.pdf")
+ggplot2::ggsave(figure_s3_png, figure_s3, width = 4.5, height = 5.1, dpi = 400, bg = "white")
+ggplot2::ggsave(figure_s3_pdf, figure_s3, width = 4.5, height = 5.1, device = grDevices::cairo_pdf)
+figure_s3
 ```
 
-## Figure S3
+## Figure S2
 
-```{r assemble-figure-s3, fig.width=7.1, fig.height=8.66, out.width="100%"}
-figure_s3_tips <- figure_s3_data$tips |>
+```{r assemble-figure-s2, fig.width=7.1, fig.height=8.66, out.width="100%"}
+figure_s2_tips <- figure_s2_data$tips |>
+  dplyr::left_join(
+    figure_s1_metadata |>
+      dplyr::filter(!is.na(.data$strain_id), .data$strain_id != "") |>
+      dplyr::group_by(.data$strain_id) |>
+      dplyr::summarise(
+        broad_environment = dplyr::first(.data$broad_environment),
+        .groups = "drop"
+      ),
+    by = c("tip_label" = "strain_id")
+  ) |>
   dplyr::mutate(
-    tree_x = figure_s3_data$tree_y_max - figure_s3_data$cladogram_tip_y,
+    tree_x = figure_s2_data$tree_y_max - figure_s2_data$cladogram_tip_y,
     tree_y = x,
+    broad_environment = dplyr::coalesce(
+      .data$broad_environment, "Unresolved"
+    ),
+    broad_environment = factor(
+      .data$broad_environment,
+      levels = c("soil", "freshwater", "marine", "Unresolved")
+    ),
     genus_label = dplyr::if_else(
       is.na(.data$gtdb_genus) | .data$gtdb_genus == "",
       "Unassigned", .data$gtdb_genus
     )
   )
-figure_s3_edges <- figure_s3_data$edges |>
+figure_s2_edges <- figure_s2_data$edges |>
   dplyr::rename(
     old_parent_x = parent_x, old_parent_y = parent_y,
     old_child_x = child_x, old_child_y = child_y
   ) |>
   dplyr::transmute(
-    parent_x = figure_s3_data$tree_y_max - old_parent_y,
+    parent_x = figure_s2_data$tree_y_max - old_parent_y,
     parent_y = old_parent_x,
-    child_x = figure_s3_data$tree_y_max - old_child_y,
+    child_x = figure_s2_data$tree_y_max - old_child_y,
     child_y = old_child_x,
     branch_class
   )
-figure_s3_width <- diff(range(c(figure_s3_edges$parent_x, figure_s3_edges$child_x)))
+figure_s2_width <- diff(range(c(figure_s2_edges$parent_x, figure_s2_edges$child_x)))
+figure_s2_environment_colors <- c(
+  soil = "#8C6D31", freshwater = "#3182BD",
+  marine = "#31A354", Unresolved = "grey65"
+)
 
-figure_s3 <- ggplot2::ggplot() +
+figure_s2 <- ggplot2::ggplot() +
   ggplot2::geom_segment(
-    data = figure_s3_edges,
+    data = figure_s2_edges,
     ggplot2::aes(
       x = parent_x, xend = parent_x, y = parent_y, yend = child_y,
       color = branch_class
     ), linewidth = 0.42
   ) +
   ggplot2::geom_text(
-    data = figure_s3_tips,
+    data = figure_s2_tips,
     ggplot2::aes(
-      x = tree_x + figure_s3_width * 0.015,
+      x = tree_x + figure_s2_width * 0.015,
       y = tree_y,
       label = genus_label
     ),
     hjust = 0, size = 1.35, fontface = "italic", color = "grey15"
   ) +
   ggplot2::geom_segment(
-    data = figure_s3_edges,
+    data = figure_s2_edges,
     ggplot2::aes(
       x = parent_x, xend = child_x, y = child_y, yend = child_y,
       color = branch_class
@@ -2799,15 +3116,28 @@ figure_s3 <- ggplot2::ggplot() +
     limits = names(gtdb_class_colors),
     drop = FALSE, na.value = "grey65", name = "GTDB-Tk class",
     guide = ggplot2::guide_legend(
+      order = 1,
       override.aes = list(linewidth = 0.9, color = unname(gtdb_class_colors))
     )
   ) +
+  ggplot2::geom_point(
+    data = figure_s2_tips,
+    ggplot2::aes(x = tree_x, y = tree_y, fill = broad_environment),
+    shape = 21, size = 1.5, stroke = 0.18, color = "white"
+  ) +
+  ggplot2::scale_fill_manual(
+    values = figure_s2_environment_colors,
+    breaks = names(figure_s2_environment_colors),
+    drop = FALSE,
+    name = "Broad environment",
+    guide = ggplot2::guide_legend(order = 2)
+  ) +
   ggplot2::coord_cartesian(
     xlim = c(
-      min(c(figure_s3_edges$parent_x, figure_s3_edges$child_x)),
-      max(c(figure_s3_edges$parent_x, figure_s3_edges$child_x)) + figure_s3_width * 0.35
+      min(c(figure_s2_edges$parent_x, figure_s2_edges$child_x)),
+      max(c(figure_s2_edges$parent_x, figure_s2_edges$child_x)) + figure_s2_width * 0.35
     ),
-    ylim = range(figure_s3_tips$tree_y) + c(-1, 1), clip = "off"
+    ylim = range(figure_s2_tips$tree_y) + c(-1, 1), clip = "off"
   ) +
   ggplot2::theme_void(base_size = 9) +
   ggplot2::theme(
@@ -2818,11 +3148,11 @@ figure_s3 <- ggplot2::ggplot() +
     legend.key.width = grid::unit(1.1, "lines")
   )
 
-figure_s3_png <- file.path(output_dir, "FigureS3.png")
-figure_s3_pdf <- file.path(output_dir, "FigureS3.pdf")
-ggplot2::ggsave(figure_s3_png, figure_s3, width = 7.1, height = 8.66, dpi = 400, bg = "white")
-ggplot2::ggsave(figure_s3_pdf, figure_s3, width = 7.1, height = 8.66, device = grDevices::cairo_pdf)
-figure_s3
+figure_s2_png <- file.path(output_dir, "FigureS2.png")
+figure_s2_pdf <- file.path(output_dir, "FigureS2.pdf")
+ggplot2::ggsave(figure_s2_png, figure_s2, width = 7.1, height = 8.66, dpi = 400, bg = "white")
+ggplot2::ggsave(figure_s2_pdf, figure_s2, width = 7.1, height = 8.66, device = grDevices::cairo_pdf)
+figure_s2
 ```
 
 ## Figure S4
@@ -3902,9 +4232,13 @@ figure_outputs <- c(
   figure_s17_png, figure_s17_pdf
 )
 data.frame(
-  output = c(figure_outputs, table_s1_path, table_s2_path),
-  exists = file.exists(c(figure_outputs, table_s1_path, table_s2_path)),
-  size_bytes = file.info(c(figure_outputs, table_s1_path, table_s2_path))$size,
+  output = c(figure_outputs, table_s1_path, table_s2_path, table_s3_path),
+  exists = file.exists(c(
+    figure_outputs, table_s1_path, table_s2_path, table_s3_path
+  )),
+  size_bytes = file.info(c(
+    figure_outputs, table_s1_path, table_s2_path, table_s3_path
+  ))$size,
   row.names = NULL
 )
 ```

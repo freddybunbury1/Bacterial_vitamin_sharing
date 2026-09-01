@@ -29,6 +29,9 @@ complete_tree_path <- file.path(
 )
 tip_metadata_path <- file.path(processed_dir, "gtdbtk_bac120_study_genomes_tip_metadata.csv")
 rooting_summary_path <- file.path(processed_dir, "gtdbtk_bac120_study_genomes_rooting_summary.csv")
+phylogenetic_signal_path <- file.path(
+  processed_dir, "gtdbtk_bac120_phylogenetic_signal.csv"
+)
 
 required_packages <- c("ape", "dplyr", "phytools", "stringr", "tibble")
 missing_packages <- required_packages[
@@ -250,9 +253,49 @@ complete_tips <- tip_metadata |>
 if (length(complete_tips) < 2L) stop("Fewer than two tree tips have complete B12 traits.")
 complete_tree <- ape::keep.tip(split_tree, complete_tips)
 
+estimate_pagels_lambda <- function(tree, metadata, phenotype, transformation) {
+  values <- as.numeric(metadata[[phenotype]])
+  if (transformation == "log10") {
+    values[values <= 0] <- NA_real_
+    values <- log10(values)
+  }
+  names(values) <- metadata$tip_label
+  values <- values[is.finite(values) & names(values) %in% tree$tip.label]
+  if (length(values) < 3L) {
+    stop("Fewer than three tree tips have finite values for ", phenotype, ".")
+  }
+  trait_tree <- ape::keep.tip(tree, names(values))
+  values <- values[trait_tree$tip.label]
+  signal <- phytools::phylosig(
+    trait_tree, values, method = "lambda", test = TRUE
+  )
+  data.frame(
+    phenotype = phenotype,
+    transformation = transformation,
+    n_tips = length(values),
+    pagels_lambda = unname(signal$lambda),
+    log_likelihood_lambda = unname(signal$logL),
+    log_likelihood_lambda_zero = unname(signal$logL0),
+    likelihood_ratio = 2 * (unname(signal$logL) - unname(signal$logL0)),
+    p_value = unname(signal$P),
+    stringsAsFactors = FALSE
+  )
+}
+
+phylogenetic_signal <- dplyr::bind_rows(
+  estimate_pagels_lambda(split_tree, tip_metadata, "total_b12_gm", "log10"),
+  estimate_pagels_lambda(split_tree, tip_metadata, "uptake_b12_mean", "none")
+)
+phylogenetic_signal$p_value_holm <- stats::p.adjust(
+  phylogenetic_signal$p_value, method = "holm"
+)
+
 ape::write.tree(split_tree, file = split_tree_path)
 ape::write.tree(complete_tree, file = complete_tree_path)
 utils::write.csv(tip_metadata, tip_metadata_path, row.names = FALSE, na = "")
+utils::write.csv(
+  phylogenetic_signal, phylogenetic_signal_path, row.names = FALSE, na = ""
+)
 utils::write.csv(
   data.frame(
     rooting_method = "midpoint of edge maximizing Bacillati/Pseudomonadati agreement",
@@ -269,5 +312,6 @@ message("Wrote GTDB taxonomy: ", taxonomy_path)
 message("Wrote split-rooted tree: ", split_tree_path)
 message("Wrote complete-trait tree: ", complete_tree_path)
 message("Wrote tree tip metadata: ", tip_metadata_path)
+message("Wrote phylogenetic signal: ", phylogenetic_signal_path)
 message("Tree tips: ", length(tree$tip.label), "; complete-trait tips: ", length(complete_tree$tip.label))
 message("Unmatched GTDB user genomes retained only in the raw summary: ", length(unmatched_user_genomes))

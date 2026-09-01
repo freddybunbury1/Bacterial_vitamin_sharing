@@ -314,7 +314,7 @@ treatment_contrasts <- strain_treatment_summary |>
     delta_time_to_halfmax = median_time_to_halfmax - control_median_time_to_halfmax
   )
 
-# Figure S2 uses only this B12/no-B12 AUC comparison. Keep the compact source
+# Figure S3 uses only this B12/no-B12 AUC comparison. Keep the compact source
 # export here instead of retaining the exploratory growth-figure script.
 auc_b0_vs_b10 <- curve_metrics |>
   dplyr::filter(
@@ -364,7 +364,7 @@ message("Wrote per-well metrics to: ", per_well_output_path)
 message("Wrote blank thresholds to: ", blank_threshold_output_path)
 message("Wrote strain-by-treatment summary to: ", strain_summary_output_path)
 message("Wrote treatment contrasts to: ", treatment_contrast_output_path)
-message("Wrote Figure S2 source data to: ", auc_b0_vs_b10_source_path)
+message("Wrote Figure S3 source data to: ", auc_b0_vs_b10_source_path)
 message("Wrote blank mixed-model coefficients to: ", blank_model_coefficients_output_path)
 message("Wrote blank model decision to: ", blank_model_decision_output_path)
 message("Blank max OD threshold (99th percentile): ", round(blank_thresholds$max_od_smoothed_threshold[1], 4))
