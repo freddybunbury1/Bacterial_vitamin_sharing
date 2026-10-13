@@ -28,7 +28,10 @@ first-order (red) and quota (blue) kinetic models; Figure S16 presents the
 selected-strain phylogeny with first-order release and uptake rates.
 Figures 4B, 5B–C and S16 report OD-specific coefficients, normalized per
 replicate to the mean of initial and final blank-adjusted OD600 before
-geometric averaging. The fitted concentration trajectories are unchanged.
+geometric averaging. Panels 4A, 4C and 5A reuse the same first-order fits,
+predictions and summaries as S12, S13 and S14, respectively. S13 and 4C
+include instantaneous killed-cell release followed by uptake, without ongoing
+release; S14 and 5A include ongoing release.
 Figures S17–S19 contain the candidate-gene associations, bioassay comparison,
 and survey fluorescence distributions, respectively. Manuscript Methods and figure captions are maintained separately in Overleaf.
 
@@ -90,11 +93,14 @@ repository root. They do not refit models or regenerate figures:
 Rscript --vanilla tests/test_figure_cohort.R
 Rscript --vanilla tests/test_od_specific_rates.R
 Rscript --vanilla tests/test_quota_solver.R
+Rscript --vanilla tests/test_shared_kinetic_models.R
 python3 tests/check_release_integrity.py
 ```
 
-The R checks validate cohort membership, OD-specific rates, and quota solver
-accuracy, conservation and limiting cases. The Python 3
+The R checks validate cohort membership, OD-specific rates, quota solver
+accuracy, conservation and limiting cases, and exact agreement between main
+and supplementary kinetic-model results. The shared-model check also exports
+scalar optimizer diagnostics without changing the fitted coefficients. The Python 3
 check uses only its standard library to verify input-manifest checksums,
 the compiled-output inventory, notebook/source consistency, and to flag temporary or exploratory files inside the release.
 Current figure layouts and S9 transformations are documented in

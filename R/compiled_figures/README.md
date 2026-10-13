@@ -46,8 +46,10 @@ trait-group ordinal.
 Figures 4B, 5B–C and S16 show OD-specific coefficients, normalized per
 replicate to mean initial/final blank-adjusted OD600 before geometric
 averaging. The additional Figure 5 uptake panels use the same normalization.
-Figure 5B statistics are recomputed on normalized rates; Figure 5D's ratio
-is unchanged because both coefficients use the same OD denominator.
+Figure 5B statistics are recomputed on normalized rates; the common OD
+denominator cancels in Figure 5D's k/r ratio. Main panels 4A, 4C and 5A
+reuse the first-order summaries shown in S12, S13 and S14. Both 4C and S13
+use uptake-only predictions following instantaneous killed-cell release.
 Figures S17–S19 show candidate-gene associations, bioassay comparison, and
 survey fluorescence distributions. The same Table S3 strain ordinals are
 used in Figures S12–S14 and S16. Manuscript captions are maintained separately in Overleaf.

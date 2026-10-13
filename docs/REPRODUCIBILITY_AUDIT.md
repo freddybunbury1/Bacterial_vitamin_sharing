@@ -2,7 +2,73 @@
 
 Latest audit date: 2026-10-13. Earlier validation records are retained below.
 
-## Current release validation on 2026-10-13
+## Unified-model sister copy, 2026-10-13
+
+This working copy was made in full from `Bacterial_vitamin_sharing_delta_zero`;
+all 2,733 copied files were initially byte-identical. The following model
+changes are confined to this sister copy; the previous release is the baseline.
+
+- Canonical first-order uptake and release fits are performed once. S12–S14
+  reuse their parameters and replicate predictions, and use the same empirical
+  and predicted summary values as main panels 4A, 4C and 5A. The shared-model
+  test requires exact equality at all 78 main-panel coordinates and checks
+  full first-order time-course summaries and replicate prediction provenance.
+- Both structures use the same exported mean initial/final OD reference for
+  kinetic trajectories and the live fraction in mixture predictions. S13 uses
+  instantaneous killed-cell release followed by uptake without ongoing release;
+  S14 includes ongoing release with the release-specific initial condition.
+- Existing lower bounds are retained. Scalar fitting screens candidate minima
+  before local refinement; all 368 non-blank canonical scalar fits are checked
+  against independently evaluated screened alternatives. Seven uptake fits and
+  two release fits differ by more than 0.1% from the baseline. The existing
+  representative-selection rule now selects fb9 as the reclaimer example.
+- Figure 4 agreement is CCC 0.775941177848553, MAE 0.0705287794229651 and
+  permutation p 1/1001. Figure 5D slope is -0.284587827584429, R-squared
+  0.496798574742114 and p 0.000173124884742930. Both models have 184 successful
+  non-blank culture/glucose fits; all quota numerical checks pass.
+- `tests/test_shared_kinetic_models.R` checks shared outputs, coefficient reuse,
+  quota OD references, lower bounds and scalar optimizer objectives. Existing
+  cohort, OD-specific-rate and quota-solver regression tests also pass.
+
+### Subsequent housekeeping validation
+
+Removed the unused release-inclusive live–dead prediction function and its
+exports, the duplicate live–dead normalization export, four unused plotting
+helpers and their styling definitions, and the unused model-ID helper.
+Updated README and session wording to describe the shared current workflow;
+historical validation entries remain explicitly labelled.
+
+A full notebook rebuild succeeded after cleanup. Exactly three obsolete
+processed CSVs were removed; all 1,237 retained raw/intermediate/processed
+files are byte-identical to the pre-cleanup baseline. All 26 PNG exports are
+pixel-identical, and all eight compiled CSVs are byte-identical. Shared-model,
+OD-specific-rate and quota-solver checks pass, including retained bounds and
+all 368 scalar optimizer checks. Release integrity passes 1,066 input checks,
+the 64-file compiled inventory and notebook consistency; `git diff --check`
+passes. No fit, prediction, reported statistic or figure changed in this pass.
+
+### Upload-readiness validation
+
+The upload candidate contains 1,130 tracked/non-ignored source and input files
+(10,641,184 bytes; largest file approximately 3.5 MB). Ten tracked files are
+modified and `tests/test_shared_kinetic_models.R` is the one new file to include
+in the commit. Licenses and the required figure asset are tracked; generated
+outputs, KEGG acquisition files and Finder caches are ignored by Git.
+Corrected stale 200-strain counts in the current pipeline guide to 202 and
+added the shared-model check to the root README.
+
+A source copy containing only the upload-eligible files rebuilt all figures
+and tables successfully, starting with no intermediate or processed analysis
+outputs. This used the existing installed R packages and the previously
+acquired KEGG annotation cache; it was not a new package-installation
+environment or a clone of a newly pushed commit. All 106 processed CSVs are
+byte-identical to the working copy, and all 26 PNGs are pixel-identical.
+All four R validation checks and release integrity pass in that clean source
+copy, including 1,066 input checks, the 64-file compiled inventory, exact
+main/supplementary agreement and all 368 scalar optimizer checks. No upload
+blockers were found. No files were staged, committed or pushed during the audit.
+
+## Previous release validation on 2026-10-13
 
 The complete production notebook was rendered after the quota solver update,
 including all eight production scripts and all 42 executable notebook chunks.
@@ -16,8 +82,8 @@ the self-contained notebook were regenerated. Figure 5D conditionally displays
   fails automatic OD QC; KC611216 pools eight observations across its two
   positions. Figure S1 deduplicates the 277 unique collection isolates before
   sampling-location clustering and taxonomy aggregation.
-- Quota uptake uses an analytical solution, while release and live–dead
-  trajectories use adaptive LSODA with relative/absolute tolerances of 1e-8.
+- Quota uptake, including the uptake-only S13 live–dead predictions, uses an
+  analytical solution; S14 release trajectories use adaptive LSODA with relative/absolute tolerances of 1e-8.
   All 184 quota fits converge and all 1,056 fitted-trajectory checks pass
   against tighter integration and physical/conservation constraints.
 - The cohort, OD-specific-rate and quota-solver regression tests pass. The

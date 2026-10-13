@@ -533,10 +533,8 @@ b12_b_estimates_path <- file.path(modeling_dir, "b12_b_estimates_b12_release_upt
 b12_fits_uptake_path <- file.path(modeling_dir, "b12_fits_uptake_b12_release_uptake_death.csv")
 b12_fits_release_path <- file.path(modeling_dir, "b12_fits_release_b12_release_uptake_death.csv")
 b12_mix_pred_uptake_path <- file.path(modeling_dir, "b12_mix_pred_uptake_b12_release_uptake_death.csv")
-b12_mix_pred_release_path <- file.path(modeling_dir, "b12_mix_pred_release_b12_release_uptake_death.csv")
-b12_with_prop_path <- file.path(modeling_dir, "b12_with_prop_b12_release_uptake_death.csv")
 
-required_packages <- c("dplyr", "tidyr", "broom", "minpack.lm", "ggplot2")
+required_packages <- c("dplyr", "tidyr", "broom", "minpack.lm")
 missing <- required_packages[!vapply(
   required_packages,
   function(pkg) requireNamespace(pkg, quietly = TRUE),
@@ -643,34 +641,6 @@ write.csv(model_outputs$b_estimates, b12_b_estimates_path, row.names = FALSE)
 write.csv(model_outputs$fits_uptake, b12_fits_uptake_path, row.names = FALSE)
 write.csv(model_outputs$fits_release, b12_fits_release_path, row.names = FALSE)
 write.csv(model_outputs$mix_pred_uptake, b12_mix_pred_uptake_path, row.names = FALSE)
-write.csv(model_outputs$mix_pred_release, b12_mix_pred_release_path, row.names = FALSE)
-
-# denominator and filtrate proportion for live/dead mix
-full_kill_vals <- b12_results |>
-  dplyr::filter(experiment_type == "live_dead_mix") |>
-  dplyr::group_by(strain_id, biological_replicate, experiment_name, added_glucose_mM_C) |>
-  dplyr::summarise(
-    b12_full_kill = stats::median(
-      dplyr::if_else(killed_proportion == 1, b12_pm, NA_real_),
-      na.rm = TRUE
-    ),
-    .groups = "drop"
-  )
-
-b12_with_prop <- b12_results |>
-  dplyr::left_join(
-    full_kill_vals,
-    by = c("strain_id", "biological_replicate", "experiment_name", "added_glucose_mM_C")
-  ) |>
-  dplyr::mutate(
-    filtrate_proportion = dplyr::if_else(
-      experiment_type == "live_dead_mix" & !is.na(b12_full_kill) & b12_full_kill > 0,
-      b12_pm / b12_full_kill,
-      NA_real_
-    )
-  )
-
-write.csv(b12_with_prop, b12_with_prop_path, row.names = FALSE)
 
 message("Wrote canonical kinetic-model outputs to: ", modeling_dir)
 
@@ -1001,7 +971,6 @@ b12_fits_release_path <- file.path("data/processed", section_name, "modeling", "
 
 b12_mix_pred_uptake_path <- file.path("data/processed", section_name, "modeling", "b12_mix_pred_uptake_b12_release_uptake_death.csv")
 
-b12_mix_pred_release_path <- file.path("data/processed", section_name, "modeling", "b12_mix_pred_release_b12_release_uptake_death.csv")
 
 trait_survey_fraction_dead_release_path <- file.path("data/processed/figure_source_data", "b12_trait_survey", "09E_fraction_dead_vs_extracellular_b12_fraction_release_uptake_strains_gtdb_order_source.csv")
 
@@ -1025,10 +994,6 @@ coerce_numeric <- function(df, cols) {
     df
 }
 
-plot_theme <- ggplot2::theme_bw(base_size = 11) + ggplot2::theme(panel.grid.minor = ggplot2::element_blank(), strip.background = ggplot2::element_rect(fill = "grey95"), 
-    plot.title = ggplot2::element_text(face = "bold", size = 12), axis.text.x = ggplot2::element_text(angle = 35, hjust = 1, 
-        vjust = 1))
-
 b12_results <- read_csv_or_stop(b12_results_path)
 
 b12_summary <- read_csv_or_stop(b12_summary_path)
@@ -1041,7 +1006,6 @@ b12_fits_release <- read_csv_or_stop(b12_fits_release_path)
 
 b12_mix_pred_uptake <- read_csv_or_stop(b12_mix_pred_uptake_path)
 
-b12_mix_pred_release <- read_csv_or_stop(b12_mix_pred_release_path)
 
 trait_survey_fraction_dead_release <- read_csv_or_stop(trait_survey_fraction_dead_release_path)
 
@@ -1057,27 +1021,7 @@ trait_metadata <- if (file.exists(trait_metadata_path)) {
     data.frame(strain_id = character(), b12_trait_group2 = character())
 }
 
-gtdb_order_levels <- sort(unique(stats::na.omit(gtdb_metadata$gtdb_order)))
-
-gtdb_order_levels <- c(setdiff(gtdb_order_levels, c("Multiple", "Unassigned")), intersect(gtdb_order_levels, "Multiple"), 
-    intersect(gtdb_order_levels, "Unassigned"))
-
-gtdb_order_palette <- c("#4e79a7", "#f28e2b", "#59a14f", "#e15759", "#b07aa1", "#76b7b2", "#edc948", "#af7aa1", "#ff9da7", 
-    "#9c755f", "#bab0ac", "#86bc86", "#a0cbe8", "#ffbe7d", "#8cd17d")
-
-gtdb_order_colors <- stats::setNames(rep(gtdb_order_palette, length.out = length(gtdb_order_levels)), gtdb_order_levels)
-
 b12_trait_group2_levels <- c("retainer", "provider", "reclaimer")
-
-b12_trait_group2_colors <- c(retainer = "#7570b3", provider = "#e7298a", reclaimer = "#d95f02", Unassigned = "grey55")
-
-gtdb_order_color_scale <- function() {
-    ggplot2::scale_color_manual(values = gtdb_order_colors, breaks = names(gtdb_order_colors), drop = TRUE, name = "GTDB order")
-}
-
-b12_trait_group2_color_scale <- function() {
-    ggplot2::scale_color_manual(values = b12_trait_group2_colors, breaks = names(b12_trait_group2_colors), drop = TRUE, name = "Trait group")
-}
 
 order_by_trait_group2 <- function(dat) {
     strain_levels <- dplyr::pull(dplyr::arrange(dplyr::mutate(dplyr::distinct(dat, strain_id, b12_trait_group2), b12_trait_group2 = factor(as.character(b12_trait_group2), 
@@ -1097,9 +1041,6 @@ b12_fits_release <- coerce_numeric(b12_fits_release, c("k_per_cell", "k_per_cell
 
 b12_mix_pred_uptake <- coerce_numeric(b12_mix_pred_uptake, c("added_b12_pM", "added_glucose_mM_C", "killed_proportion", "sample_time_minute", 
     "predicted_b12", "b12_pm"))
-
-b12_mix_pred_release <- coerce_numeric(b12_mix_pred_release, c("added_b12_pM", "added_glucose_mM_C", "killed_proportion", 
-    "sample_time_minute", "predicted_b12", "b12_pm"))
 
 trait_survey_fraction_dead_release <- coerce_numeric(trait_survey_fraction_dead_release, c("dead_proportion_gm", "dead_proportion_gsd", 
     "filtrate_proportion_gm", "filtrate_proportion_gsd"))
@@ -1141,20 +1082,8 @@ trapezoid_auc <- function(x, y) {
     sum(diff(dat$x) * (head(dat$y, -1) + tail(dat$y, -1))/2)
 }
 
-glucose_shape_values <- c(`0` = 16, `10` = 17)
-
-glucose_linetype_values <- c(`0` = "solid", `10` = "22")
-
 add_glucose_factor <- function(dat) {
     dplyr::mutate(dat, added_glucose_mM_C_factor = factor(as.character(added_glucose_mM_C), levels = sort(unique(as.character(added_glucose_mM_C)))))
-}
-
-glucose_shape_scale <- function() {
-    ggplot2::scale_shape_manual(values = glucose_shape_values, drop = TRUE, name = "Glucose (mM C)")
-}
-
-glucose_linetype_scale <- function() {
-    ggplot2::scale_linetype_manual(values = glucose_linetype_values, drop = TRUE, name = "Glucose (mM C)")
 }
 
 summarise_timecourse <- function(dat) {
@@ -1185,116 +1114,6 @@ summarise_mix_fraction <- function(dat) {
         b12_frac_mean, NA_real_), b12_frac_sd = dplyr::if_else(is.na(b12_frac_sd), 0, b12_frac_sd), predicted_b12 = dplyr::if_else(is.finite(predicted_b12), 
         predicted_b12, NA_real_), predicted_b12_frac = dplyr::if_else(is.finite(predicted_b12_frac), predicted_b12_frac, 
         NA_real_), b12_frac_ymin = pmax(b12_frac_mean - b12_frac_sd, 1e-06), b12_frac_ymax = b12_frac_mean + b12_frac_sd))
-}
-
-make_timecourse_plot <- function(dat, title, subtitle, facet_trait = FALSE, show_glucose = FALSE, log_y = FALSE, show_b12_reference = TRUE) {
-    p <- ggplot2::ggplot(dat, ggplot2::aes(x = sample_time_minute, color = gtdb_order)) + ggplot2::geom_errorbar(ggplot2::aes(ymin = b12_ymin, 
-        ymax = b12_ymax), width = 0, alpha = 0.45, linewidth = 0.35)
-    if (show_glucose) {
-        p <- p + ggplot2::geom_point(ggplot2::aes(y = b12_mean, shape = added_glucose_mM_C_factor), alpha = 0.75, size = 1.5) + 
-            ggplot2::geom_line(ggplot2::aes(y = model_pred, linetype = added_glucose_mM_C_factor, group = interaction(strain_id, 
-                added_glucose_mM_C_factor)), linewidth = 0.8) + glucose_shape_scale() + glucose_linetype_scale()
-    }
-    else {
-        p <- p + ggplot2::geom_point(ggplot2::aes(y = b12_mean), alpha = 0.75, size = 1.5) + ggplot2::geom_line(ggplot2::aes(y = model_pred, 
-            group = strain_id), linewidth = 0.8)
-    }
-    if (show_b12_reference) {
-        p <- p + ggplot2::geom_hline(yintercept = 500, linetype = "dashed", color = "grey70", linewidth = 0.4)
-    }
-    p <- p + gtdb_order_color_scale() + ggplot2::labs(title = title, subtitle = subtitle, x = "Time (minutes)", y = if (log_y) 
-        "Filtrate B12 (pM, log scale)"
-    else "Filtrate B12 (pM)", color = "GTDB order") + plot_theme
-    if (facet_trait) {
-        p <- p + ggplot2::facet_wrap(ggplot2::vars(b12_trait_group2, strain_facet), ncol = 6)
-    }
-    else {
-        p <- p + ggplot2::facet_wrap(ggplot2::vars(strain_id), ncol = 6)
-    }
-    if (log_y) {
-        p <- p + ggplot2::scale_y_log10()
-    }
-    p
-}
-
-make_timecourse_trait_plot <- function(dat, title, subtitle, color_by = c("gtdb_order", "trait_group2"), show_glucose = FALSE, 
-    show_b12_reference = TRUE, x_label = "Time (minutes)", y_label = "Filtrate B12 (pM)") {
-    color_by <- match.arg(color_by)
-    dat <- dplyr::mutate(dat, b12_trait_group2 = factor(as.character(b12_trait_group2), levels = c(b12_trait_group2_levels, 
-        "Unassigned")))
-    if (color_by == "trait_group2") {
-        p <- ggplot2::ggplot(dat, ggplot2::aes(x = sample_time_minute, color = b12_trait_group2)) + b12_trait_group2_color_scale()
-        color_label <- "Trait group"
-    }
-    else {
-        p <- ggplot2::ggplot(dat, ggplot2::aes(x = sample_time_minute, color = gtdb_order)) + gtdb_order_color_scale()
-        color_label <- "GTDB order"
-    }
-    p <- p + ggplot2::geom_errorbar(ggplot2::aes(ymin = b12_ymin, ymax = b12_ymax, group = if (show_glucose) 
-        interaction(strain_id, added_glucose_mM_C_factor)
-    else strain_id), width = 0, alpha = 0.35, linewidth = 0.3)
-    if (show_glucose) {
-        p <- p + ggplot2::geom_point(ggplot2::aes(y = b12_mean, shape = added_glucose_mM_C_factor, group = interaction(strain_id, 
-            added_glucose_mM_C_factor)), alpha = 0.65, size = 1.5) + ggplot2::geom_line(ggplot2::aes(y = model_pred, linetype = added_glucose_mM_C_factor, 
-            group = interaction(strain_id, added_glucose_mM_C_factor)), linewidth = 0.8, alpha = 0.85) + glucose_shape_scale() + 
-            glucose_linetype_scale()
-    }
-    else {
-        p <- p + ggplot2::geom_point(ggplot2::aes(y = b12_mean, group = strain_id), alpha = 0.65, size = 1.5) + ggplot2::geom_line(ggplot2::aes(y = model_pred, 
-            group = strain_id), linewidth = 0.8, alpha = 0.85)
-    }
-    if (show_b12_reference) {
-        p <- p + ggplot2::geom_hline(yintercept = 500, linetype = "dashed", color = "grey70", linewidth = 0.4)
-    }
-    p + ggplot2::facet_wrap(ggplot2::vars(b12_trait_group2), nrow = 1) + ggplot2::labs(title = title, subtitle = subtitle, 
-        x = x_label, y = y_label, color = color_label) + plot_theme
-}
-
-make_mix_plot <- function(dat, title, subtitle, facet_trait = FALSE, show_glucose = FALSE, log_y = FALSE) {
-    p <- ggplot2::ggplot(dat, ggplot2::aes(x = killed_proportion, color = gtdb_order)) + ggplot2::geom_errorbar(ggplot2::aes(ymin = b12_frac_ymin, 
-        ymax = b12_frac_ymax), width = 0.015, alpha = 0.45, linewidth = 0.35)
-    if (show_glucose) {
-        p <- p + ggplot2::geom_point(ggplot2::aes(y = b12_frac_mean, shape = added_glucose_mM_C_factor), alpha = 0.75, size = 1.5) + 
-            ggplot2::geom_line(ggplot2::aes(y = predicted_b12_frac, linetype = added_glucose_mM_C_factor, group = interaction(strain_id, 
-                added_glucose_mM_C_factor)), linewidth = 0.8) + glucose_shape_scale() + glucose_linetype_scale()
-    }
-    else {
-        p <- p + ggplot2::geom_point(ggplot2::aes(y = b12_frac_mean), alpha = 0.75, size = 1.5) + ggplot2::geom_line(ggplot2::aes(y = predicted_b12_frac, 
-            group = strain_id), linewidth = 0.8)
-    }
-    p <- p + gtdb_order_color_scale() + ggplot2::labs(title = title, subtitle = subtitle, x = "Fraction dead", y = if (log_y) 
-        "Extracellular B12 fraction (log scale)"
-    else "Extracellular B12 fraction", color = "GTDB order") + plot_theme
-    if (facet_trait) {
-        p <- p + ggplot2::facet_wrap(ggplot2::vars(b12_trait_group2, strain_facet), ncol = 6)
-    }
-    else {
-        p <- p + ggplot2::facet_wrap(ggplot2::vars(strain_id), ncol = 6)
-    }
-    if (log_y) {
-        p <- p + ggplot2::scale_y_log10()
-    }
-    p
-}
-
-make_mix_trait_plot <- function(dat, title, subtitle, color_by = c("gtdb_order", "trait_group2"), x_label = "Fraction dead", 
-    y_label = "Extracellular B12 fraction") {
-    color_by <- match.arg(color_by)
-    dat <- dplyr::mutate(dat, b12_trait_group2 = factor(as.character(b12_trait_group2), levels = c(b12_trait_group2_levels, 
-        "Unassigned")))
-    if (color_by == "trait_group2") {
-        p <- ggplot2::ggplot(dat, ggplot2::aes(x = killed_proportion, color = b12_trait_group2)) + b12_trait_group2_color_scale()
-        color_label <- "Trait group"
-    }
-    else {
-        p <- ggplot2::ggplot(dat, ggplot2::aes(x = killed_proportion, color = gtdb_order)) + gtdb_order_color_scale()
-        color_label <- "GTDB order"
-    }
-    p + ggplot2::geom_errorbar(ggplot2::aes(ymin = b12_frac_ymin, ymax = b12_frac_ymax, group = strain_id), width = 0.015, 
-        alpha = 0.35, linewidth = 0.3) + ggplot2::geom_point(ggplot2::aes(y = b12_frac_mean, group = strain_id), alpha = 0.65, 
-        size = 1.5) + ggplot2::geom_line(ggplot2::aes(y = predicted_b12_frac, group = strain_id), linewidth = 0.8, alpha = 0.85) + 
-        ggplot2::facet_wrap(ggplot2::vars(b12_trait_group2), nrow = 1) + ggplot2::labs(title = title, subtitle = subtitle, 
-        x = x_label, y = y_label, color = color_label) + plot_theme
 }
 
 prepare_representative_plot_source <- function(dat, representatives) {
@@ -1447,10 +1266,6 @@ mix_uptake_summary <- summarise_mix_fraction(mix_uptake_raw)
 
 mix_uptake_summary_nonblank <- dplyr::filter(mix_uptake_summary, strain_id != "blank")
 
-mix_release_raw <- prepare_mix_source(b12_mix_pred_release, "release_model")
-
-mix_release_summary <- summarise_mix_fraction(mix_release_raw)
-
 representative_median_abs_auc_error <- select_median_abs_auc_error_strains(mix_uptake_summary_nonblank)
 
 uptake_representative_median_abs_auc_error <- prepare_representative_plot_source(uptake_summary_glucose0_nonblank, representative_median_abs_auc_error)
@@ -1459,14 +1274,6 @@ release_uptake_representative_median_abs_auc_error_all_glucose <- prepare_repres
     representative_median_abs_auc_error)
 
 mix_uptake_representative_median_abs_auc_error <- prepare_representative_plot_source(mix_uptake_summary_nonblank, representative_median_abs_auc_error)
-
-mix_release_trait_group2_strain_facet_04m <- droplevels(dplyr::arrange(dplyr::mutate(mix_release_summary, trait_group2 = dplyr::if_else(is.na(b12_trait_group2) | 
-    b12_trait_group2 == "" | b12_trait_group2 == "Unassigned", "NA", b12_trait_group2), trait_group2 = factor(trait_group2, 
-    levels = trait_group2_strain_facet_levels_01i), trait_group2_strain_id = paste(trait_group2, strain_id, sep = "_"), trait_group2_strain_id = factor(trait_group2_strain_id, 
-    levels = levels(uptake_summary_trait_group2_strain_facet_01i$trait_group2_strain_id))), trait_group2, strain_id, killed_proportion))
-
-write.csv(mix_release_trait_group2_strain_facet_04m, file.path(figure_source_dir, "dead_fraction_mix_source_04M_04N_04O.csv"), 
-    row.names = FALSE)
 
 write.csv(uptake_representative_median_abs_auc_error, file.path(figure_source_dir, "uptake_fit_dynamics_source_01H.csv"), 
     row.names = FALSE)
@@ -1612,6 +1419,7 @@ comparison_specs <- data.frame(
     model_spec_id = c("supp_first_order", "supp_quota"),
     pipeline = "two_stage",
     prediction_model = "release_plus_uptake",
+    live_dead_prediction_model = "uptake_only",
     fit_scale = "log",
     blank_offset_treatment = "estimated_blank",
     glucose_parameterization = "separate",
@@ -1623,10 +1431,20 @@ comparison_specs <- data.frame(
 )
 comparison_results <- lapply(seq_len(nrow(comparison_specs)), function(i) {
     spec <- as.list(comparison_specs[i, ])
-    result <- run_model_spec(
-        spec, comparison_inputs$data, comparison_inputs$blank_offset,
-        comparison_inputs$quota_blank_sd_pM
-    )
+    if (spec$uptake_structure == "first_order") {
+        # These fits and predictions have already been computed by the main
+        # two-stage pipeline. Never refit the first-order comparator here.
+        result <- reuse_first_order_result(
+            spec, b12_fits_release, b12_release_initial_estimates,
+            uptake_raw, release_uptake_raw, mix_uptake_raw,
+            rate_od_reference, blank_offset
+        )
+    } else {
+        result <- run_model_spec(
+            spec, comparison_inputs$data, comparison_inputs$blank_offset,
+            comparison_inputs$quota_blank_sd_pM
+        )
+    }
     write_model_spec_result(result, spec, modeling_dir, comparison_inputs$blank_offset)
     result
 })
@@ -1642,7 +1460,7 @@ comparison_mix <- dplyr::bind_rows(lapply(comparison_results, `[[`, "predictions
     )
 
 comparison_uptake_model <- comparison_kinetic |>
-    dplyr::filter(added_b12_pM > 0, added_glucose_mM_C == 0) |>
+    dplyr::filter(model_structure == "quota_saturation", added_b12_pM > 0, added_glucose_mM_C == 0) |>
     dplyr::group_by(model_structure, strain_id, b12_trait_group2, sample_time_minute) |>
     dplyr::summarise(
         model_pred = mean(fitted_b12, na.rm = TRUE),
@@ -1653,18 +1471,9 @@ comparison_model_structures <- dplyr::distinct(
     dplyr::select(comparison_specs, model_structure = uptake_structure)
 )
 
-comparison_uptake_empirical <- b12_results |>
-    dplyr::filter(
-        experiment_type == "release_and_uptake", added_b12_pM > 0,
-        added_glucose_mM_C == 0
-    ) |>
-    dplyr::group_by(strain_id, sample_time_minute) |>
-    dplyr::summarise(
-        empirical_mean_b12 = mean(b12_pm, na.rm = TRUE),
-        empirical_sd_b12 = stats::sd(b12_pm, na.rm = TRUE),
-        .groups = "drop"
-    ) |>
-    dplyr::left_join(trait_metadata, by = "strain_id") |>
+comparison_uptake_empirical <- uptake_summary_glucose0 |>
+    dplyr::transmute(strain_id, b12_trait_group2, sample_time_minute,
+                     empirical_mean_b12 = b12_mean, empirical_sd_b12 = b12_sd) |>
     dplyr::mutate(
         b12_trait_group2 = dplyr::if_else(strain_id == "blank", "blank", b12_trait_group2)
     ) |>
@@ -1675,9 +1484,13 @@ comparison_uptake_source <- comparison_uptake_empirical |>
         comparison_uptake_model,
         by = c("model_structure", "strain_id", "b12_trait_group2", "sample_time_minute")
     )
+comparison_uptake_source <- use_canonical_first_order_summary(
+    comparison_uptake_source, uptake_summary_glucose0,
+    c("strain_id", "sample_time_minute"), "model_pred", "model_pred"
+)
 
 comparison_mix_model <- comparison_mix |>
-    dplyr::filter(added_glucose_mM_C == 0) |>
+    dplyr::filter(model_structure == "quota_saturation", added_glucose_mM_C == 0) |>
     dplyr::group_by(model_structure, strain_id, b12_trait_group2, experiment_name, biological_replicate) |>
     dplyr::mutate(
         predicted_full_kill = stats::median(predicted_b12[killed_proportion == 1], na.rm = TRUE),
@@ -1690,21 +1503,11 @@ comparison_mix_model <- comparison_mix |>
         .groups = "drop"
     )
 
-comparison_mix_empirical <- b12_results |>
-    dplyr::filter(experiment_type == "live_dead_mix", added_glucose_mM_C == 0) |>
-    dplyr::group_by(strain_id, experiment_name, biological_replicate) |>
-    dplyr::mutate(
-        empirical_full_kill = stats::median(b12_pm[killed_proportion == 1], na.rm = TRUE),
-        empirical_fraction = b12_pm / empirical_full_kill
-    ) |>
-    dplyr::ungroup() |>
-    dplyr::group_by(strain_id, killed_proportion) |>
-    dplyr::summarise(
-        empirical_fraction_mean = mean(empirical_fraction, na.rm = TRUE),
-        empirical_fraction_sd = stats::sd(empirical_fraction, na.rm = TRUE),
-        .groups = "drop"
-    ) |>
-    dplyr::left_join(trait_metadata, by = "strain_id") |>
+comparison_mix_empirical <- mix_uptake_summary |>
+    dplyr::filter(added_glucose_mM_C == 0) |>
+    dplyr::transmute(strain_id, b12_trait_group2, killed_proportion,
+                     empirical_fraction_mean = b12_frac_mean,
+                     empirical_fraction_sd = b12_frac_sd) |>
     dplyr::mutate(
         b12_trait_group2 = dplyr::if_else(strain_id == "blank", "blank", b12_trait_group2)
     ) |>
@@ -1715,27 +1518,23 @@ comparison_mix_source <- comparison_mix_empirical |>
         comparison_mix_model,
         by = c("model_structure", "strain_id", "b12_trait_group2", "killed_proportion")
     )
+comparison_mix_source <- use_canonical_first_order_summary(
+    comparison_mix_source, dplyr::filter(mix_uptake_summary, added_glucose_mM_C == 0),
+    c("strain_id", "killed_proportion"), "predicted_fraction", "predicted_b12_frac"
+)
 
 comparison_release_model <- comparison_kinetic |>
-    dplyr::filter(added_b12_pM == 0, added_glucose_mM_C %in% c(0, 10)) |>
+    dplyr::filter(model_structure == "quota_saturation", added_b12_pM == 0, added_glucose_mM_C %in% c(0, 10)) |>
     dplyr::group_by(model_structure, strain_id, b12_trait_group2, added_glucose_mM_C, sample_time_minute) |>
     dplyr::summarise(
         model_pred = mean(fitted_b12, na.rm = TRUE),
         .groups = "drop"
     )
 
-comparison_release_empirical <- b12_results |>
-    dplyr::filter(
-        experiment_type == "release_and_uptake", added_b12_pM == 0,
-        added_glucose_mM_C %in% c(0, 10)
-    ) |>
-    dplyr::group_by(strain_id, added_glucose_mM_C, sample_time_minute) |>
-    dplyr::summarise(
-        empirical_mean_b12 = mean(b12_pm, na.rm = TRUE),
-        empirical_sd_b12 = stats::sd(b12_pm, na.rm = TRUE),
-        .groups = "drop"
-    ) |>
-    dplyr::left_join(trait_metadata, by = "strain_id") |>
+comparison_release_empirical <- release_uptake_summary |>
+    dplyr::filter(added_glucose_mM_C %in% c(0, 10)) |>
+    dplyr::transmute(strain_id, b12_trait_group2, added_glucose_mM_C, sample_time_minute,
+                     empirical_mean_b12 = b12_mean, empirical_sd_b12 = b12_sd) |>
     dplyr::mutate(
         b12_trait_group2 = dplyr::if_else(strain_id == "blank", "blank", b12_trait_group2)
     ) |>
@@ -1749,6 +1548,10 @@ comparison_release_source <- comparison_release_empirical |>
             "added_glucose_mM_C", "sample_time_minute"
         )
     )
+comparison_release_source <- use_canonical_first_order_summary(
+    comparison_release_source, release_uptake_summary,
+    c("strain_id", "added_glucose_mM_C", "sample_time_minute"), "model_pred", "model_pred"
+)
 
 write.csv(comparison_uptake_source, file.path(figure_source_dir, "supp_model_structures_uptake_dynamics.csv"), row.names = FALSE)
 write.csv(comparison_mix_source, file.path(figure_source_dir, "supp_model_structures_live_dead_mix.csv"), row.names = FALSE)

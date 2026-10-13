@@ -50,3 +50,38 @@ for (call in list(
 }
 cat('PASS:',nrow(grid),'quota parameter combinations; analytical/adaptive agreement,',
     'capacity, conservation, limiting cases and invalid-input guards. Max B difference:',max_error,'pM.\n')
+
+
+# Integration regression: S13 must depend on uptake, not fitted release/offset.
+model_dir <- 'data/processed/b12_release_uptake_death/modeling'
+spec_path <- file.path(model_dir,'supplementary_model_structure_specifications.csv')
+if (file.exists(spec_path)) {
+  specs <- read.csv(spec_path)
+  stopifnot('live_dead_prediction_model' %in% names(specs),
+            all(specs$live_dead_prediction_model=='uptake_only'))
+  inputs <- read_model_inputs('.')
+  for (id in c('supp_first_order','supp_quota')) {
+    parameters <- read.csv(file.path(model_dir,paste0(id,'_parameters.csv')))
+    predictions <- read.csv(file.path(model_dir,paste0(id,'_predictions.csv')))
+    d <- predictions[predictions$prediction_ok, ]
+    for (key in unique(d$.group_key)) {
+      p <- parameters[parameters$group_key==key,]
+      pars <- setNames(p$estimate,p$parameter)
+      g <- d[d$.group_key==key,]
+      b0 <- pmax(g$full_kill_b12-inputs$blank_offset,0) /
+        g$source_od600 * g$adjusted_od600 * g$killed_proportion
+      x <- g$adjusted_od600*(1-g$killed_proportion)
+      if (id=='supp_first_order') {
+        expected <- b0*exp(-pars[['k_per_od']]*x*g$sample_time_minute)
+      } else {
+        # Alter fitted release parameters: the uptake-only reference excludes both.
+        pars[['r_per_od']] <- 1e6
+        pars[['release_initial_b12_pM']] <- 1e6
+        expected <- vapply(seq_len(nrow(g)),function(j)
+          quota_predict_state(g$sample_time_minute[j],b0[j],x[j],pars)$B,numeric(1))
+      }
+      stopifnot(max(abs(g$predicted_b12-inputs$blank_offset-expected))<1e-8)
+    }
+  }
+  cat('PASS: S13 exported first-order/quota predictions use uptake only and no release initial offset.\n')
+}

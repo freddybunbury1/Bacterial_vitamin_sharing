@@ -2,6 +2,9 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(tidyr)
 })
+if (!exists("build_kinetic_od_reference", mode = "function")) {
+  source("R/utils/b12_two_stage_kinetic_pipeline.R")
+}
 
 # Keep this utility stable when sourced after packages that mask common dplyr
 # verbs (notably MASS::select in the compiled analysis session).
@@ -34,8 +37,6 @@ trapezoid_auc <- function(x, y) {
   sum(diff(x) * (head(y, -1L) + tail(y, -1L)) / 2)
 }
 
-make_model_id <- function(i) sprintf("model_%04d", i)
-
 read_model_inputs <- function(repo_root = ".") {
   b12_path <- file.path(repo_root, "data/processed/b12_release_uptake_death/b12_results_b12_release_uptake_death.csv")
   od_path <- file.path(repo_root, "data/processed/b12_release_uptake_death/b12_od_viability_results_b12_release_uptake_death.csv")
@@ -44,17 +45,21 @@ read_model_inputs <- function(repo_root = ".") {
   b12 <- read.csv(b12_path, check.names = FALSE, stringsAsFactors = FALSE)
   od <- read.csv(od_path, check.names = FALSE, stringsAsFactors = FALSE)
 
-  ru_od <- od |>
-    filter(experiment_type == "release_and_uptake", sample_time_minute == 240) |>
-    group_by(strain_id, experiment_name, biological_replicate, added_glucose_mM_C) |>
-    summarise(adjusted_od600 = safe_mean(adjusted_od600), .groups = "drop") |>
+  # The same mean initial/final culture density used for the canonical rates.
+  # Also use this density when transferring uptake to the live fraction, so
+  # both model structures implement the main model's x * (1-f) assumption.
+  reference_path <- file.path(repo_root, "data/processed/b12_release_uptake_death/modeling",
+                              "b12_rate_od_reference_b12_release_uptake_death.csv")
+  if (!file.exists(reference_path)) stop("Run the canonical first-order stage to export the shared OD reference first.")
+  reference <- read.csv(reference_path, check.names = FALSE)
+  ru_od <- reference |>
+    select(strain_id, experiment_name, biological_replicate, added_glucose_mM_C,
+           adjusted_od600 = od600_reference) |>
     mutate(experiment_type = "release_and_uptake")
 
-  live_dead_od <- od |>
-    filter(experiment_type == "live_dead_source", sample_time_minute == 0, killed_proportion == 0) |>
-    group_by(strain_id, experiment_name, biological_replicate) |>
-    summarise(adjusted_od600 = safe_mean(adjusted_od600), .groups = "drop") |>
-    mutate(added_glucose_mM_C = 0, experiment_type = "live_dead_mix")
+  live_dead_od <- ru_od |>
+    filter(added_glucose_mM_C == 0) |>
+    mutate(experiment_type = "live_dead_mix")
 
   b12 <- b12 |>
     left_join(
@@ -249,7 +254,16 @@ fit_parameters <- function(dat, structure, fit_scale, blank_offset, release_init
   }
   fit <- tryCatch({
     if (length(start) == 1L) {
-      one <- optimize(function(x) objective(x), interval = c(-20, 20), tol = 1e-8)
+      # A broad single optimize() call assumes unimodality. Screen the whole
+      # log interval and refine every sampled local minimum instead.
+      grid <- seq(-20, 20, length.out = 161)
+      values <- vapply(grid, objective, numeric(1))
+      local <- which(values[2:160] <= values[1:159] & values[2:160] <= values[3:161]) + 1L
+      candidates <- lapply(local, function(i) optimize(objective,
+        interval = grid[c(i - 1L, i + 1L)], tol = 1e-8))
+      candidates <- c(candidates, list(list(minimum=grid[1], objective=values[1]),
+                                       list(minimum=grid[161], objective=values[161])))
+      one <- candidates[[which.min(vapply(candidates, `[[`, numeric(1), "objective"))]]
       list(par = one$minimum, value = one$objective, convergence = 0L)
     } else {
       upper_values <- c(
@@ -323,6 +337,81 @@ fit_one_group <- function(dat, spec, blank_offset, release_initial_value, quota_
 }
 
 build_group_key <- function(dat, group_vars) do.call(paste, c(dat[group_vars], sep = "|"))
+
+use_canonical_first_order_summary <- function(source, canonical, keys, target, value) {
+  if (anyDuplicated(canonical[keys])) stop("Duplicate canonical summary coordinates.")
+  values <- canonical[c(keys, value)]
+  names(values)[length(names(values))] <- ".canonical_value"
+  source <- left_join(source, values, by = keys)
+  first <- source$model_structure == "first_order"
+  source[[target]][first] <- source$.canonical_value[first]
+  # Blank controls are empirical displays, not OD-normalized model fits.
+  source[[target]][source$strain_id == "blank"] <- NA_real_
+  source$.canonical_value <- NULL
+  source
+}
+
+# Adapter only: canonical first-order fits and trajectories are passed in,
+# never fitted or predicted again for the supplementary figures.
+reuse_first_order_result <- function(spec, fits, release_initial, uptake_raw,
+                                    release_raw, mix_raw, od_reference, blank_offset) {
+  keys <- group_variables(spec)
+  fitted <- fits |>
+    filter(strain_id != "blank") |>
+    left_join(release_initial, by = keys) |>
+    mutate(group_key = build_group_key(pick(all_of(keys)), keys))
+  parameters <- fitted |>
+    transmute(across(all_of(keys)), model_spec_id = spec$model_spec_id, group_key,
+              k_per_od = k_per_od600, r_per_od = r_per_od600,
+              release_initial_b12_pM, E_pM = E_per_cell) |>
+    pivot_longer(c(k_per_od, r_per_od, release_initial_b12_pM, E_pM),
+                 names_to = "parameter", values_to = "estimate")
+  kinetic <- bind_rows(uptake_raw, release_raw) |>
+    filter(strain_id != "blank") |>
+    mutate(.group_key = build_group_key(pick(all_of(keys)), keys),
+           adjusted_od600 = od600_reference, od_valid = is.finite(adjusted_od600) & adjusted_od600 > 0,
+           fitted_b12 = model_pred, model_spec_id = spec$model_spec_id)
+  status <- fitted |>
+    select(all_of(keys), group_key) |>
+    left_join(kinetic |> count(.group_key, name = "n_fit"), by = c("group_key" = ".group_key")) |>
+    mutate(model_spec_id = spec$model_spec_id, fit_ok = TRUE,
+           fit_message = "reused_canonical_first_order", objective = NA_real_)
+  predictions <- mix_raw |>
+    filter(strain_id != "blank") |>
+    left_join(od_reference |> select(all_of(keys), od600_reference, measured_source_od600 = od600_t0), by = keys) |>
+    mutate(.group_key = build_group_key(pick(all_of(keys)), keys),
+           adjusted_od600 = od600_reference, source_od600 = od600_reference,
+           od_valid = is.finite(adjusted_od600) & adjusted_od600 > 0,
+           full_kill_b12 = b_full_corrected + blank_offset,
+           prediction_ok = is.finite(predicted_b12), model_spec_id = spec$model_spec_id,
+           error = b12_pm - predicted_b12,
+           normalized_error = error / full_kill_b12,
+           absolute_normalized_error = abs(normalized_error),
+           squared_normalized_error = normalized_error^2)
+  list(status = status, parameters = parameters, kinetic_predictions = kinetic,
+       predictions = predictions, metrics = summarize_prediction_metrics(predictions, spec))
+}
+
+summarize_prediction_metrics <- function(pred_rows, spec) {
+  auc_by_curve <- pred_rows |>
+    filter(prediction_ok, is.finite(full_kill_b12), full_kill_b12 > 0) |>
+    mutate(observed_b12_fraction = b12_pm / full_kill_b12,
+           predicted_b12_fraction = predicted_b12 / full_kill_b12) |>
+    group_by(strain_id, experiment_name, biological_replicate) |>
+    summarise(observed_auc = trapezoid_auc(killed_proportion, observed_b12_fraction),
+              predicted_auc = trapezoid_auc(killed_proportion, predicted_b12_fraction),
+              auc_difference = predicted_auc - observed_auc,
+              absolute_auc_difference = abs(auc_difference), .groups = "drop")
+  pred_rows |>
+    filter(prediction_ok, is.finite(normalized_error)) |>
+    summarise(n_prediction = n(), normalized_mae = mean(absolute_normalized_error),
+              normalized_rmse = sqrt(mean(squared_normalized_error)), .groups = "drop") |>
+    mutate(mean_absolute_auc_difference = safe_mean(auc_by_curve$absolute_auc_difference),
+           mean_signed_auc_difference = safe_mean(auc_by_curve$auc_difference),
+           model_spec_id = spec$model_spec_id, .before = 1) |>
+    mutate(normalized_mae = if_else(n_prediction > 0, normalized_mae, NA_real_),
+           normalized_rmse = if_else(n_prediction > 0, normalized_rmse, NA_real_))
+}
 
 run_model_spec <- function(spec, data, blank_offset, quota_blank_sd_pM = 0, max_groups = Inf) {
   if (spec$uptake_structure == "quota_saturation" && !requireNamespace("deSolve", quietly = TRUE)) {
@@ -406,6 +495,8 @@ run_model_spec <- function(spec, data, blank_offset, quota_blank_sd_pM = 0, max_
     group_by(across(all_of(full_kill_keys))) |>
     summarise(full_kill_b12 = safe_mean(b12_pm), source_od600 = safe_mean(adjusted_od600), .groups = "drop")
   pred_data <- left_join(pred_data, b_table, by = full_kill_keys)
+  # S13 can omit release without changing the S12 uptake and S14 release fits.
+  mix_prediction_model <- spec$live_dead_prediction_model %||% spec$prediction_model
 
   pred_rows <- lapply(seq_len(nrow(pred_data)), function(i) {
     row <- pred_data[i, ]
@@ -415,12 +506,12 @@ run_model_spec <- function(spec, data, blank_offset, quota_blank_sd_pM = 0, max_
     } else {
       release_initial_value <- pars[["release_initial_b12_pM"]]
       b_per_od <- max((row$full_kill_b12 - blank_offset) / row$source_od600, 0)
-      release_initial_b12_pM <- if (spec$prediction_model == "release_plus_uptake") release_initial_value else 0
+      release_initial_b12_pM <- if (mix_prediction_model == "release_plus_uptake") release_initial_value else 0
       b0 <- release_initial_b12_pM + b_per_od * row$adjusted_od600 * row$killed_proportion
       live_od <- row$adjusted_od600 * (1 - row$killed_proportion)
-      if (spec$prediction_model == "null_no_uptake") value <- b0
+      if (mix_prediction_model == "null_no_uptake") value <- b0
       else value <- predict_model_b12(row$sample_time_minute, b0, live_od, spec$uptake_structure, pars,
-        release_per_od = if (spec$prediction_model == "release_plus_uptake") pars[["r_per_od"]] else 0)
+        release_per_od = if (mix_prediction_model == "release_plus_uptake") pars[["r_per_od"]] else 0)
       row$predicted_b12 <- blank_offset + value
       row$prediction_ok <- is.finite(row$predicted_b12)
     }
@@ -435,34 +526,7 @@ run_model_spec <- function(spec, data, blank_offset, quota_blank_sd_pM = 0, max_
       squared_normalized_error = normalized_error^2
     )
 
-  auc_by_curve <- pred_rows |>
-    filter(prediction_ok, is.finite(full_kill_b12), full_kill_b12 > 0) |>
-    mutate(
-      observed_b12_fraction = b12_pm / full_kill_b12,
-      predicted_b12_fraction = predicted_b12 / full_kill_b12
-    ) |>
-    group_by(strain_id, experiment_name, biological_replicate) |>
-    summarise(
-      observed_auc = trapezoid_auc(killed_proportion, observed_b12_fraction),
-      predicted_auc = trapezoid_auc(killed_proportion, predicted_b12_fraction),
-      auc_difference = predicted_auc - observed_auc,
-      absolute_auc_difference = abs(auc_difference),
-      .groups = "drop"
-    )
-
-  metrics <- pred_rows |>
-    filter(prediction_ok, is.finite(normalized_error)) |>
-    summarise(n_prediction = n(), normalized_mae = mean(absolute_normalized_error),
-              normalized_rmse = sqrt(mean(squared_normalized_error)), .groups = "drop") |>
-    mutate(
-      mean_absolute_auc_difference = safe_mean(auc_by_curve$absolute_auc_difference),
-      mean_signed_auc_difference = safe_mean(auc_by_curve$auc_difference)
-    ) |>
-    mutate(model_spec_id = spec$model_spec_id, .before = 1) |>
-    mutate(
-      normalized_mae = if_else(n_prediction > 0, normalized_mae, NA_real_),
-      normalized_rmse = if_else(n_prediction > 0, normalized_rmse, NA_real_)
-    )
+  metrics <- summarize_prediction_metrics(pred_rows, spec)
   list(
     status = status,
     parameters = parameters,
@@ -477,7 +541,7 @@ run_model_spec <- function(spec, data, blank_offset, quota_blank_sd_pM = 0, max_
 
 # Recheck the fitted trajectories against a tighter independent integration.
 # These diagnostics are exported during the normal supplementary fit workflow.
-validate_quota_result <- function(result, blank_offset) {
+validate_quota_result <- function(result, blank_offset, live_dead_prediction_model = "release_plus_uptake") {
   records <- list()
   check_curve <- function(key, setting, times, b0, od, pars, release) {
     current <- quota_predict_state(times, b0, od, pars, release)
@@ -516,11 +580,13 @@ validate_quota_result <- function(result, blank_offset) {
     for (i in seq_len(nrow(mix))) {
       d <- mix[i, ]
       b <- max(d$full_kill_b12 - blank_offset, 0) / d$source_od600
-      b0 <- pars[['release_initial_b12_pM']] + b * d$adjusted_od600 * d$killed_proportion
+      include_release <- live_dead_prediction_model == 'release_plus_uptake'
+      b0 <- (if (include_release) pars[['release_initial_b12_pM']] else 0) +
+        b * d$adjusted_od600 * d$killed_proportion
       check_curve(key, paste0('live_dead_', d$killed_proportion),
                   c(0, d$sample_time_minute), b0,
                   d$adjusted_od600 * (1 - d$killed_proportion), pars,
-                  pars[['r_per_od']])
+                  if (include_release) pars[['r_per_od']] else 0)
     }
   }
   diagnostics <- bind_rows(records)
@@ -532,7 +598,9 @@ validate_quota_result <- function(result, blank_offset) {
 
 write_model_spec_result <- function(result, spec, output_dir, blank_offset) {
   if (spec$uptake_structure == 'quota_saturation') {
-    result$numerical_checks <- validate_quota_result(result, blank_offset)
+    result$numerical_checks <- validate_quota_result(
+      result, blank_offset, spec$live_dead_prediction_model %||% spec$prediction_model
+    )
   }
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
   for (name in names(result)) {

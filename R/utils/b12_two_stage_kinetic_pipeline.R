@@ -7,6 +7,31 @@ library(dplyr)
 library(broom)
 library(tidyr)
 
+# Locate candidate basins before local least-squares refinement. A single
+# starting value or a single broad optimize() interval can miss a better fit.
+screen_scalar_fit <- function(objective, lower, upper) {
+  grid <- seq(log(lower), log(upper), length.out = 161)
+  values <- vapply(grid, objective, numeric(1))
+  local <- which(values[2:160] <= values[1:159] & values[2:160] <= values[3:161]) + 1L
+  candidates <- lapply(local, function(i) optimize(objective,
+    interval = grid[c(i-1L, i+1L)], tol = 1e-10))
+  candidates <- c(candidates, list(list(minimum=grid[1], objective=values[1]),
+                                   list(minimum=grid[161], objective=values[161])))
+  best <- candidates[[which.min(vapply(candidates, `[[`, numeric(1), "objective"))]]
+  list(start = exp(best$minimum), objective = best$objective)
+}
+
+refine_screened_fit <- function(fit_one, starts, screen) {
+  fits <- lapply(unique(starts), function(start) tryCatch(fit_one(start), error=function(e) NULL))
+  fits <- Filter(Negate(is.null), fits)
+  if (!length(fits)) stop("No scalar least-squares refinement converged.")
+  best <- fits[[which.min(vapply(fits, deviance, numeric(1)))]]
+  if (deviance(best) > screen$objective + 1e-6 * max(1, screen$objective)) {
+    stop("Scalar refinement is worse than the screened solution.")
+  }
+  best
+}
+
 # The legacy k_per_cell and r_per_cell fields are culture-level coefficients.
 # Retain them for predictions; expose explicitly named OD-specific summaries.
 build_kinetic_od_reference <- function(od_results) {
@@ -100,7 +125,7 @@ fit_uptake_model <- function(b12_results, blank_offset, group_vars,
       x = as.numeric(sample_time_minute),
       B0_nominal = as.numeric(added_b12_pM)
     ) %>%
-    dplyr::filter(!is.na(y), !is.na(x)) %>%
+    dplyr::filter(is.finite(y), y > 0, is.finite(x), x >= 0) %>%
     dplyr::group_by(across(all_of(group_vars))) %>%
     dplyr::group_modify(~{
       
@@ -112,6 +137,13 @@ fit_uptake_model <- function(b12_results, blank_offset, group_vars,
       
       fit <- tryCatch({
         k_scaled_lower <- 1e-4 * x_max
+        objective <- function(log_rate) {
+          predicted <- blank_offset + dat$B0_nominal * exp(-exp(log_rate) * dat$x)
+          residual <- if (fit_scale == "log") log(dat$y) - log(predicted) else dat$y - predicted
+          sum(residual^2)
+        }
+        screen <- screen_scalar_fit(objective, 1e-4, 1e3)
+        fit_one <- function(initial) {
         
         if (fit_scale == "log") {
           nlsLM(
@@ -119,7 +151,7 @@ fit_uptake_model <- function(b12_results, blank_offset, group_vars,
                            B0_nominal *
                            exp(-k_scaled * x_scaled)),
             data = dat,
-            start = list(k_scaled = 0.1),
+            start = list(k_scaled = initial),
             lower = c(k_scaled = k_scaled_lower),
             control = nls.lm.control(maxiter = 500)
           )
@@ -129,11 +161,14 @@ fit_uptake_model <- function(b12_results, blank_offset, group_vars,
               B0_nominal *
               exp(-k_scaled * x_scaled),
             data = dat,
-            start = list(k_scaled = 0.1),
+            start = list(k_scaled = initial),
             lower = c(k_scaled = k_scaled_lower),
             control = nls.lm.control(maxiter = 500)
           )
         }
+        }
+        refine_screened_fit(fit_one,
+          c(0.1, max(screen$start * x_max, k_scaled_lower * (1 + 1e-8))), screen)
         
       }, error = function(e){
         message("Uptake fit failed: ", unique(dat$strain_id))
@@ -185,7 +220,7 @@ fit_release_model <- function(b12_results, release_initial_b12_estimates, fits_u
       y = as.numeric(b12_pm),
       x = as.numeric(sample_time_minute)
     ) %>%
-    dplyr::filter(!is.na(y), !is.na(x)) %>%
+    dplyr::filter(is.finite(y), y > 0, is.finite(x), x >= 0) %>%
     dplyr::left_join(release_initial_b12_estimates, by = group_vars) %>%
     dplyr::left_join(fits_uptake, by = group_vars) %>%
     dplyr::group_by(across(all_of(group_vars))) %>%
@@ -198,6 +233,15 @@ fit_release_model <- function(b12_results, release_initial_b12_estimates, fits_u
       if(length(k_val) != 1 || is.na(k_val)) return(data.frame())
       
       fit <- tryCatch({
+        objective <- function(log_rate) {
+          equilibrium <- exp(log_rate) / k_val
+          predicted <- blank_offset + equilibrium +
+            (dat$release_initial_b12_pM - equilibrium) * exp(-k_val * dat$x)
+          residual <- if (fit_scale == "log") log(dat$y) - log(predicted) else dat$y - predicted
+          sum(residual^2)
+        }
+        screen <- screen_scalar_fit(objective, 1e-4, 1e4)
+        fit_one <- function(initial) {
         
         if (fit_scale == "log") {
           nlsLM(
@@ -208,7 +252,7 @@ fit_release_model <- function(b12_results, release_initial_b12_estimates, fits_u
                 exp(-k_val * x)
             ),
             data = dat,
-            start = list(r_per_cell = 0.1),
+            start = list(r_per_cell = initial),
             lower = c(r_per_cell = 1e-4),
             control = nls.lm.control(maxiter = 500)
           )
@@ -219,11 +263,13 @@ fit_release_model <- function(b12_results, release_initial_b12_estimates, fits_u
               (release_initial_b12_pM - r_per_cell / k_val) *
               exp(-k_val * x),
             data = dat,
-            start = list(r_per_cell = 0.1),
+            start = list(r_per_cell = initial),
             lower = c(r_per_cell = 1e-4),
             control = nls.lm.control(maxiter = 500)
           )
         }
+        }
+        refine_screened_fit(fit_one, c(0.1, max(screen$start, 1e-4 * (1 + 1e-8))), screen)
         
       }, error = function(e){
         message("Release fit failed")
@@ -282,36 +328,7 @@ predict_mix_uptake <- function(b12_results, fits_uptake,
 }
 
 ############################################################
-############ Mix predictions (release+uptake)
-############################################################
-
-predict_mix_release <- function(b12_results, fits_release, release_initial_b12_estimates,
-                                b_estimates, blank_offset, group_vars){
-  
-  mix_pred_release <- b12_results %>%
-    dplyr::filter(experiment_type == "live_dead_mix") %>%
-    dplyr::left_join(fits_release, by = group_vars) %>%
-    dplyr::left_join(release_initial_b12_estimates, by = group_vars) %>%
-    dplyr::left_join(b_estimates, by = group_vars) %>%
-    dplyr::mutate(
-      f_dead = killed_proportion,
-      f_live = 1 - killed_proportion,
-      B0 = release_initial_b12_pM + b_per_cell * f_dead,
-      predicted_b12 = blank_offset +
-        E_per_cell +
-        (B0 - E_per_cell) *
-        exp(-k_per_cell *
-              f_live *
-              sample_time_minute),
-      null_predicted_b12 = blank_offset + B0
-    )
-  
-  return(mix_pred_release)
-  
-}
-
-############################################################
-############ Master pipeline (same interface)
+############ Master pipeline
 ############################################################
 
 build_b12_model_outputs <- function(
@@ -410,17 +427,8 @@ build_b12_model_outputs <- function(
     group_vars
   )
   
-  mix_pred_release <- predict_mix_release(
-    b12_results,
-    fits_release,
-    release_initial_b12_estimates,
-    b_estimates,
-    blank_offset,
-    group_vars
-  )
-  
   ############################################################
-  ############ Output (identical structure)
+  ############ Output
   ############################################################
   
   list(
@@ -430,7 +438,6 @@ build_b12_model_outputs <- function(
     fits_uptake = fits_uptake,
     fits_release = fits_release,
     mix_pred_uptake = mix_pred_uptake,
-    mix_pred_release = mix_pred_release,
     group_vars = group_vars,
     join_vars = join_vars,
     group_by_glucose = group_by_glucose,

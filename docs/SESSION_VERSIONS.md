@@ -37,5 +37,11 @@ The clean-room renders reported in `REPRODUCIBILITY_AUDIT.md` used:
 ## Quota solver validation on 2026-10-13
 
 The revised analytical/LSODA quota solver was validated with deSolve 1.40.
-The main first-order pipeline is unchanged. The subsequent full pipeline render regenerated all figures, including
+At that solver-update stage, the main first-order pipeline was unchanged.
+The subsequent full pipeline render regenerated all figures, including
 the supplementary quota comparisons, on 2026-10-13.
+
+The unified-model sister copy subsequently reused the canonical first-order
+fits and predictions in S12–S14 and added scalar optimizer screening while
+retaining the existing bounds. Both structures use the same mean initial/final
+OD reference. The full notebook was rebuilt in the same validation environment.

@@ -56,12 +56,16 @@ also matched by glucose condition. Both time points receive equal weight.
 the uptake/release fit exports include the OD-specific coefficients and
 conditional SEs (OD measurement uncertainty is not propagated). Missing or
 nonpositive non-blank OD stops the calculation; blank controls are not
-normalized. Figure 5D is unchanged because the common OD cancels in k/r.
-The supplementary comparison retains its explicit OD-specific fits, using adjusted OD600 at
-240 min for kinetic time courses and source-culture OD600 at 0 min for the
-live–dead mixtures. Its live–dead predictions include constant release and
-the release-specific initial concentration, whereas the primary Figure 4
-predictions include uptake alone. Quota uptake depends on remaining capacity,
+normalized. The common OD denominator cancels in the Figure 5D k/r ratio.
+First-order fits are performed once in the canonical two-stage pipeline;
+the supplementary comparison reuses its coefficients and replicate predictions.
+Main panels 4A, 4C and 5A select strains from the same summarized first-order
+results shown in S12, S13 and S14, respectively. Quota fits also use the mean
+initial/final OD reference above, including x times the surviving fraction
+for live–dead predictions. S13 omits ongoing release and the release-specific
+initial concentration, predicting uptake alone after instantaneous killed-cell
+release. S14 retains the independently fitted release coefficient and initial
+condition. Quota uptake depends on remaining capacity,
 with Q(0) = 0 and the total capacity constrained to at least one standard
 deviation of the 500-pM blank-control measurements.
 
@@ -71,6 +75,13 @@ and SDs. Coloured lines join means of separately fitted replicate predictions
 at the sampled time points, with alpha 0.8. Facets are ordered blank, Retainers,
 Providers, Reclaimers, using the same Table S3 ordinals as Figure S16. All
 facets share continuous axes, and Figure S13 has a y-axis upper limit of 1.5.
+Canonical scalar first-order fitting screens log-spaced candidate rates and
+refines sampled local minima before least-squares refinement. It retains the
+existing culture-effective lower bounds of 1e-4 for uptake and release.
+Quota release fitting also screens scalar log-parameter minima. The existing
+quota uptake bounds and analytical/adaptive solver checks are retained.
+Run `Rscript --vanilla tests/test_shared_kinetic_models.R` after rebuilding to
+check exact main/supplementary source equality and canonical fit provenance.
 Figures S17–S19 contain candidate-gene associations, bioassay comparison, and
 survey fluorescence distributions. Manuscript Methods and captions are maintained separately in Overleaf.
 
@@ -98,14 +109,14 @@ as Figure 1A: a genome in the QC-passing study-genome tree and finite total
 B12 and uptake estimates. `R/utils/b12_figure_cohort.R` supplies this shared
 filter. There is no minimum sample-count or finite-SD requirement for a point;
 unavailable uncertainty omits the corresponding error bar. The full cohort
-contains 200 unique strains, and the `total_b12_gm > 50` subset contains 79.
+contains 202 unique strains, and the `total_b12_gm > 50` subset contains 79.
 Required positive extracellular/death values are additionally checked where
 logarithms or ratios are plotted; these checks retain all 79 synthesizers.
 
 The classifier uses the same cohort. The legacy genomic-feature identifier
 `KC61126` is matched to `KC611216` before joining, retaining that strain once.
-The four tasks in Figure 2 use 200, 200, 79 and 79 strains; the S6 tree panels
-use 200 and 79. S7 is recalculated from the resulting random forests.
+The four tasks in Figure 2 use 202, 202, 79 and 79 strains; the S6 tree panels
+use 202 and 79. S7 is recalculated from the resulting random forests.
 Supplied pyseer association summaries are not refitted or modified.
 
 ## Figure S9 measurements
