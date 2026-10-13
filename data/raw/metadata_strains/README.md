@@ -18,6 +18,12 @@ Each row represents one physical strain-bank or experimental-array position,
 not necessarily one unique isolate. Repeated `strain_id` values are therefore
 permitted.
 
+The survey has no manual position-specific exclusions. Both DSM24912 and
+KC611216 array positions enter preprocessing. All four observations from
+DSM24912 at `marine_strainbank_array2/H6` fail the automatic OD filter. Both
+KC611216 positions (`sequenced_strainbank_array2/E9` and `H12`) pass that
+filter and contribute to its eight-observation strain summary.
+
 `stored_adjusted_od600` records the adjusted OD600 associated with the stored
 strain entry. The more specific name distinguishes it from OD600 measurements
 made during downstream experiments.

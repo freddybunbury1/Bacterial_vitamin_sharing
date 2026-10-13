@@ -39,6 +39,7 @@ b12_trait_group_total_b12_threshold_pm <- 50
 b12_trait_group_uptake_b12_threshold_pm <- 250
 b12_trait_group_filtrate_proportion_threshold <- 0.05
 
+source("R/utils/b12_figure_cohort.R")
 source(helper_path)
 source(estimator_path)
 check_required_packages(c("dplyr", "tidyr", "purrr", "stringr", "drc"))
@@ -725,8 +726,7 @@ utils::write.csv(b12_trait_survey_estimator_diagnostics, b12_trait_survey_estima
 # views of the strain summary; the former exploratory figure script is not part
 # of the public pipeline.
 trait_group_levels <- c("retainer", "provider", "reclaimer")
-trait_figure_strains <- b12_trait_survey_strain_summary |>
-  dplyr::filter(.data$n_samples >= 3L) |>
+trait_figure_strains <- b12_figure_cohort(b12_trait_survey_strain_summary) |>
   dplyr::mutate(
     b12_trait_group2 = factor(.data$b12_trait_group2, levels = trait_group_levels)
   )
@@ -735,9 +735,7 @@ fraction_dead_extracellular <- trait_figure_strains |>
   dplyr::filter(
     is.finite(.data$total_b12_gm), .data$total_b12_gm > 50,
     is.finite(.data$dead_proportion_gm), .data$dead_proportion_gm > 0,
-    is.finite(.data$dead_proportion_gsd), .data$dead_proportion_gsd > 0,
     is.finite(.data$filtrate_proportion_gm), .data$filtrate_proportion_gm > 0,
-    is.finite(.data$filtrate_proportion_gsd), .data$filtrate_proportion_gsd > 0,
     is.finite(.data$uptake_b12_mean)
   )
 
@@ -756,7 +754,7 @@ extracellular_over_dead_uptake <- fraction_dead_extracellular |>
   )
 
 trait_group2_boxplot_source <- trait_figure_strains |>
-  dplyr::filter(!is.na(.data$b12_trait_group2)) |>
+  dplyr::filter(.data$total_b12_gm > 50, !is.na(.data$b12_trait_group2)) |>
   dplyr::mutate(
     extracellular_b12_over_dead_fraction =
       .data$filtrate_proportion_gm / .data$dead_proportion_gm

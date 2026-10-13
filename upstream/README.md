@@ -1,7 +1,8 @@
 # Optional upstream workflows
 
-This directory documents computational steps performed before the public R
-analysis begins:
+This directory contains contribution templates for computational steps performed
+before the public R analysis begins. The workflow code and run records have not
+yet been supplied; the input manifests currently contain headers only:
 
 - `genome_annotation/`: Thomas Janas's assembly-to-KO-matrix and GTDB-Tk
   workflow.
@@ -10,8 +11,9 @@ analysis begins:
 The manuscript R pipeline starts from the reviewed, checksummed outputs already
 included under `data/raw/`. It does not automatically run these upstream
 workflows. This separation lets readers reproduce the figures without rerunning
-computationally intensive genome analyses, while still documenting how those
-boundary inputs were created.
+computationally intensive genome analyses. Reproducing those upstream analyses
+requires the workflow code, inputs and completed provenance records described
+in the contribution templates.
 
 Each upstream workflow should:
 

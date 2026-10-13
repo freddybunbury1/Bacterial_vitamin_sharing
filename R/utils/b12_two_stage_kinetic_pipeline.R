@@ -7,11 +7,85 @@ library(dplyr)
 library(broom)
 library(tidyr)
 
+# The legacy k_per_cell and r_per_cell fields are culture-level coefficients.
+# Retain them for predictions; expose explicitly named OD-specific summaries.
+build_kinetic_od_reference <- function(od_results) {
+  source_keys <- c("strain_id", "experiment_name", "biological_replicate")
+  fit_keys <- c(source_keys, "added_glucose_mM_C")
+  required <- c(fit_keys, "experiment_type", "sample_time_minute",
+                "killed_proportion", "added_b12_pM", "adjusted_od600")
+  if (!all(required %in% names(od_results))) {
+    stop("OD reference input lacks required columns.")
+  }
+
+  # The untreated live/dead source is the common starting culture, before
+  # splitting into the glucose and added-B12 conditions.
+  initial <- od_results |>
+    dplyr::filter(experiment_type == "live_dead_source",
+                  sample_time_minute == 0, killed_proportion == 0,
+                  added_glucose_mM_C == 0, added_b12_pM == 0) |>
+    dplyr::select(dplyr::all_of(source_keys), od600_t0 = adjusted_od600)
+  endpoint <- od_results |>
+    dplyr::filter(experiment_type == "release_and_uptake",
+                  sample_time_minute == 240, added_b12_pM %in% c(0, 500))
+  if (anyDuplicated(initial[source_keys]) ||
+      anyDuplicated(endpoint[c(fit_keys, "added_b12_pM")])) {
+    stop("Duplicate culture keys in initial/final OD measurements.")
+  }
+
+  reference <- endpoint |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(fit_keys))) |>
+    dplyr::summarise(
+      # Average matched release and uptake wells to use one density for k and r.
+      od600_t240 = mean(adjusted_od600),
+      n_od600_t240 = dplyr::n(),
+      .groups = "drop"
+    ) |>
+    dplyr::left_join(initial, by = source_keys) |>
+    dplyr::mutate(
+      od600_reference = (od600_t0 + od600_t240) / 2,
+      rate_od_status = dplyr::case_when(
+        strain_id == "blank" ~ "blank_control",
+        n_od600_t240 != 2L ~ "missing_final_well",
+        !is.finite(od600_t0) | !is.finite(od600_t240) ~ "missing_od",
+        od600_t0 <= 0 | od600_t240 <= 0 ~ "nonpositive_od",
+        TRUE ~ "valid"
+      )
+    )
+  invalid <- dplyr::filter(reference, !rate_od_status %in% c("valid", "blank_control"))
+  if (nrow(invalid)) {
+    stop("Cannot normalize rates: invalid initial/final OD for ",
+         paste(unique(invalid$strain_id), collapse = ", "))
+  }
+  reference
+}
+
+add_od_specific_rates <- function(fits, od_reference) {
+  fit_keys <- c("strain_id", "experiment_name", "biological_replicate",
+                "added_glucose_mM_C")
+  if (anyDuplicated(od_reference[fit_keys])) stop("Duplicate OD reference keys.")
+  out <- dplyr::left_join(fits, od_reference, by = fit_keys)
+  if (any(out$strain_id != "blank" &
+          (is.na(out$rate_od_status) | out$rate_od_status != "valid"))) {
+    stop("Every non-blank fitted culture must have a valid matched OD reference.")
+  }
+  denominator <- ifelse(out$rate_od_status == "valid", out$od600_reference, NA_real_)
+  for (parameter in c("k", "r")) {
+    legacy <- paste0(parameter, "_per_cell")
+    if (legacy %in% names(out)) {
+      out[[paste0(parameter, "_per_od600")]] <- out[[legacy]] / denominator
+      # Conditional fit SE: uncertainty in measured OD is not propagated.
+      out[[paste0(parameter, "_per_od600_se")]] <- out[[paste0(legacy, "_se")]] / denominator
+    }
+  }
+  out
+}
+
 ############################################################
 ############ Uptake-only model (estimate k on B0 > 0)
 ############################################################
 
-fit_uptake_model <- function(b12_results, delta_estimates, blank_offset, group_vars,
+fit_uptake_model <- function(b12_results, blank_offset, group_vars,
                              fit_scale = c("log", "linear")){
   
   fit_scale <- match.arg(fit_scale)
@@ -27,7 +101,6 @@ fit_uptake_model <- function(b12_results, delta_estimates, blank_offset, group_v
       B0_nominal = as.numeric(added_b12_pM)
     ) %>%
     dplyr::filter(!is.na(y), !is.na(x)) %>%
-    dplyr::left_join(delta_estimates, by = group_vars) %>%
     dplyr::group_by(across(all_of(group_vars))) %>%
     dplyr::group_modify(~{
       
@@ -43,7 +116,7 @@ fit_uptake_model <- function(b12_results, delta_estimates, blank_offset, group_v
         if (fit_scale == "log") {
           nlsLM(
             log(y) ~ log(blank_offset +
-                           (B0_nominal + delta) *
+                           B0_nominal *
                            exp(-k_scaled * x_scaled)),
             data = dat,
             start = list(k_scaled = 0.1),
@@ -53,7 +126,7 @@ fit_uptake_model <- function(b12_results, delta_estimates, blank_offset, group_v
         } else {
           nlsLM(
             y ~ blank_offset +
-              (B0_nominal + delta) *
+              B0_nominal *
               exp(-k_scaled * x_scaled),
             data = dat,
             start = list(k_scaled = 0.1),
@@ -97,7 +170,7 @@ fit_uptake_model <- function(b12_results, delta_estimates, blank_offset, group_v
 ############################################################
 ############ Release model (estimate r with k fixed, B0 = 0)
 ############################################################
-fit_release_model <- function(b12_results, delta_estimates, fits_uptake,
+fit_release_model <- function(b12_results, release_initial_b12_estimates, fits_uptake,
                               blank_offset, group_vars,
                               fit_scale = c("log", "linear")){
   
@@ -113,7 +186,7 @@ fit_release_model <- function(b12_results, delta_estimates, fits_uptake,
       x = as.numeric(sample_time_minute)
     ) %>%
     dplyr::filter(!is.na(y), !is.na(x)) %>%
-    dplyr::left_join(delta_estimates, by = group_vars) %>%
+    dplyr::left_join(release_initial_b12_estimates, by = group_vars) %>%
     dplyr::left_join(fits_uptake, by = group_vars) %>%
     dplyr::group_by(across(all_of(group_vars))) %>%
     dplyr::group_modify(~{
@@ -131,7 +204,7 @@ fit_release_model <- function(b12_results, delta_estimates, fits_uptake,
             log(y) ~ log(
               blank_offset +
                 (r_per_cell / k_val) +
-                (delta - r_per_cell / k_val) *
+                (release_initial_b12_pM - r_per_cell / k_val) *
                 exp(-k_val * x)
             ),
             data = dat,
@@ -143,7 +216,7 @@ fit_release_model <- function(b12_results, delta_estimates, fits_uptake,
           nlsLM(
             y ~ blank_offset +
               (r_per_cell / k_val) +
-              (delta - r_per_cell / k_val) *
+              (release_initial_b12_pM - r_per_cell / k_val) *
               exp(-k_val * x),
             data = dat,
             start = list(r_per_cell = 0.1),
@@ -186,18 +259,17 @@ fit_release_model <- function(b12_results, delta_estimates, fits_uptake,
 ############ Mix predictions (uptake-only)
 ############################################################
 
-predict_mix_uptake <- function(b12_results, fits_uptake, delta_estimates,
+predict_mix_uptake <- function(b12_results, fits_uptake,
                                b_estimates, blank_offset, group_vars){
   
   mix_pred_uptake <- b12_results %>%
     dplyr::filter(experiment_type == "live_dead_mix") %>%
     dplyr::left_join(fits_uptake, by = group_vars) %>%
-    dplyr::left_join(delta_estimates, by = group_vars) %>%
     dplyr::left_join(b_estimates, by = group_vars) %>%
     dplyr::mutate(
       f_dead = killed_proportion,
       f_live = 1 - killed_proportion,
-      B0 = delta + b_per_cell * f_dead,
+      B0 = b_per_cell * f_dead,
       predicted_b12 = blank_offset +
         B0 * exp(-k_per_cell *
                    f_live *
@@ -213,18 +285,18 @@ predict_mix_uptake <- function(b12_results, fits_uptake, delta_estimates,
 ############ Mix predictions (release+uptake)
 ############################################################
 
-predict_mix_release <- function(b12_results, fits_release, delta_estimates,
+predict_mix_release <- function(b12_results, fits_release, release_initial_b12_estimates,
                                 b_estimates, blank_offset, group_vars){
   
   mix_pred_release <- b12_results %>%
     dplyr::filter(experiment_type == "live_dead_mix") %>%
     dplyr::left_join(fits_release, by = group_vars) %>%
-    dplyr::left_join(delta_estimates, by = group_vars) %>%
+    dplyr::left_join(release_initial_b12_estimates, by = group_vars) %>%
     dplyr::left_join(b_estimates, by = group_vars) %>%
     dplyr::mutate(
       f_dead = killed_proportion,
       f_live = 1 - killed_proportion,
-      B0 = delta + b_per_cell * f_dead,
+      B0 = release_initial_b12_pM + b_per_cell * f_dead,
       predicted_b12 = blank_offset +
         E_per_cell +
         (B0 - E_per_cell) *
@@ -273,10 +345,10 @@ build_b12_model_outputs <- function(
     dplyr::pull(mean_blank)
   
   ############################################################
-  ############ Delta estimate
+  ############ Release-specific initial B12 estimate
   ############################################################
   
-  delta_estimates <- b12_results %>%
+  release_initial_b12_estimates <- b12_results %>%
     dplyr::filter(experiment_type == "release_and_uptake",
                   added_b12_pM == 0) %>%
     dplyr::mutate(y = b12_pm,
@@ -285,11 +357,11 @@ build_b12_model_outputs <- function(
     dplyr::group_by(across(all_of(group_vars))) %>%
     dplyr::slice_min(x, n = 1, with_ties = TRUE) %>%
     dplyr::summarise(
-      delta = mean(y - blank_offset - B0_nominal,
+      release_initial_b12_pM = mean(y - blank_offset - B0_nominal,
                    na.rm = TRUE),
       .groups = "drop"
     ) %>%
-    dplyr::mutate(delta = pmax(delta, 0))
+    dplyr::mutate(release_initial_b12_pM = pmax(release_initial_b12_pM, 0))
   
   ############################################################
   ############ Dead-cell release estimate
@@ -299,11 +371,10 @@ build_b12_model_outputs <- function(
     dplyr::filter(experiment_type == "live_dead_mix",
                   killed_proportion == 1) %>%
     dplyr::mutate(b12_full_corrected = b12_pm - blank_offset) %>%
-    dplyr::left_join(delta_estimates, by = group_vars) %>%
     dplyr::group_by(across(all_of(group_vars))) %>%
     dplyr::summarise(
       b_full_corrected = mean(b12_full_corrected, na.rm = TRUE),
-      b_per_cell = mean(b12_full_corrected - delta, na.rm = TRUE),
+      b_per_cell = mean(b12_full_corrected, na.rm = TRUE),
       .groups = "drop"
     )
   
@@ -313,7 +384,6 @@ build_b12_model_outputs <- function(
   
   fits_uptake <- fit_uptake_model(
     b12_results,
-    delta_estimates,
     blank_offset,
     group_vars,
     fit_scale = fit_scale
@@ -321,7 +391,7 @@ build_b12_model_outputs <- function(
   
   fits_release <- fit_release_model(
     b12_results,
-    delta_estimates,
+    release_initial_b12_estimates,
     fits_uptake,
     blank_offset,
     group_vars,
@@ -335,7 +405,6 @@ build_b12_model_outputs <- function(
   mix_pred_uptake <- predict_mix_uptake(
     b12_results,
     fits_uptake,
-    delta_estimates,
     b_estimates,
     blank_offset,
     group_vars
@@ -344,7 +413,7 @@ build_b12_model_outputs <- function(
   mix_pred_release <- predict_mix_release(
     b12_results,
     fits_release,
-    delta_estimates,
+    release_initial_b12_estimates,
     b_estimates,
     blank_offset,
     group_vars
@@ -356,7 +425,7 @@ build_b12_model_outputs <- function(
   
   list(
     blank_offset = blank_offset,
-    delta_estimates = delta_estimates,
+    release_initial_b12_estimates = release_initial_b12_estimates,
     b_estimates = b_estimates,
     fits_uptake = fits_uptake,
     fits_release = fits_release,

@@ -33,3 +33,9 @@ The clean-room renders reported in `REPRODUCIBILITY_AUDIT.md` used:
 | stringr | 1.5.2 |
 | tibble | 3.3.0 |
 | tidyr | 1.3.1 |
+
+## Quota solver validation on 2026-10-13
+
+The revised analytical/LSODA quota solver was validated with deSolve 1.40.
+The main first-order pipeline is unchanged. The subsequent full pipeline render regenerated all figures, including
+the supplementary quota comparisons, on 2026-10-13.

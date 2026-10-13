@@ -12,6 +12,9 @@ od_file_pattern <- "OD600_96well_b12_release_uptake_death(1|2)"
 viability_file_pattern <- "nuc_green_dead_b12_release_uptake_death(1|2)"
 standard_concs_pm <- c(5000 * 2.5^(0:-10), 0)
 
+# Both initial and final OD: 200 uL in 96-well plates, well area 35 mm^2.
+od_path_length_cm <- 200 / 35 / 10
+
 file_manifest_path <- file.path(intermediate_dir, "b12_release_uptake_death_input_file_manifest.csv")
 strain_layout_path <- file.path(raw_dir, "metadata", basename(source_strain_layout_path))
 
@@ -147,7 +150,12 @@ viability_files <- raw_file_manifest |>
   dplyr::filter(data_type == "viability_stain") |>
   dplyr::pull(local_path)
 
-od_raw <- purrr::map_dfr(od_files, process_release_uptake_death_od_file)
+od_raw <- purrr::map_dfr(od_files, process_release_uptake_death_od_file) |>
+  dplyr::mutate(
+    od600_plate_read = od600,
+    od_path_length_cm = od_path_length_cm,
+    od600 = od600_plate_read / od_path_length_cm
+  )
 
 od_combined <- od_raw |>
   dplyr::inner_join(

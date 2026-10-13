@@ -3,8 +3,12 @@
 - `b12_trait_survey_analysis.R`: estimates B12 concentrations, joins survey
   measurements, classifies strain traits, and exports survey figure sources.
 - `b12_release_uptake_death_analysis.R`: produces empirical summaries, fits the
-  single canonical two-stage kinetic model, and exports empirical/model figure
-  sources.
+  canonical two-stage kinetic model with a nominal uptake initial condition and
+  a release-specific `release_initial_b12_pM` condition, and exports the primary
+  and first-order/quota supplementary figure sources for Figures S12–S14.
+  Main rate summaries are normalized per replicate to mean initial/final
+  blank-adjusted OD600 before geometric averaging; fit exports retain both
+  culture-level and explicitly named OD-specific coefficients.
 - `growth_dynamics_b12_methionine_analysis.R`: models blank OD, summarizes
   growth curves, and exports the Figure S3 comparison.
 - `gtdbtk_tree_analysis.R`: parses GTDB taxonomy and builds the split-rooted

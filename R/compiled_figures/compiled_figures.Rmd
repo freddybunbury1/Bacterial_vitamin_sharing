@@ -37,8 +37,9 @@ knitr::opts_chunk$set(
 ## Shared paths and functions
 
 ```{r preprocessing-functions}
+source(file.path(project_dir, "R", "utils", "b12_figure_cohort.R"))
 required_packages <- c(
-  "ape", "cowplot", "dplyr", "ggnewscale", "ggplot2", "knitr", "magick", "maps", "openxlsx", "patchwork", "tibble", "tidyr"
+  "ape", "cowplot", "deSolve", "dplyr", "ggExtra", "ggnewscale", "ggplot2", "gtable", "knitr", "magick", "maps", "openxlsx", "patchwork", "tibble", "tidyr"
 )
 missing_packages <- required_packages[
   !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
@@ -780,16 +781,13 @@ make_tree_plot_data_figure1 <- function(tree, tip_metadata) {
   tips <- tibble::tibble(
     tip_label = tree$tip.label,
     node = seq_along(tree$tip.label),
-    x = layout$xx[seq_along(tree$tip.label)]
+    x = layout$xx[seq_along(tree$tip.label)],
+    tip_y = layout$yy[seq_along(tree$tip.label)]
   )
 
   tree_y_min <- min(nodes$y, na.rm = TRUE)
   tree_y_max <- max(nodes$y, na.rm = TRUE)
   tree_height <- tree_y_max - tree_y_min
-  internal_node_y_min <- min(layout$yy[(n_tips + 1):length(layout$yy)], na.rm = TRUE)
-  cladogram_tip_y <- internal_node_y_min - tree_height * 0.04
-  layout$yy[seq_along(tree$tip.label)] <- cladogram_tip_y
-
   tips <- tips |>
     dplyr::left_join(tip_metadata, by = "tip_label") |>
     dplyr::mutate(class_taxonomy = clean_taxonomy_figure1(class_taxonomy))
@@ -825,15 +823,14 @@ make_tree_plot_data_figure1 <- function(tree, tip_metadata) {
     tips = tips,
     edges = edges,
     tree_height = tree_height,
-    tree_y_max = tree_y_max,
-    cladogram_tip_y = cladogram_tip_y
+    tree_y_max = tree_y_max
   )
 }
 
 make_panel_a_figure1 <- function(plot_data, taxonomy_colors) {
   tips <- plot_data$tips |>
     dplyr::mutate(
-      tree_x = plot_data$tree_y_max - plot_data$cladogram_tip_y,
+      tree_x = plot_data$tree_y_max - tip_y,
       tree_y = x
     )
   edges <- plot_data$edges |>
@@ -858,6 +855,11 @@ make_panel_a_figure1 <- function(plot_data, taxonomy_colors) {
   total_x <- tree_x_max + tile_gap + tile_width / 2
   uptake_x <- total_x + tile_width + tile_gap
   label_y <- max(tips$tree_y, na.rm = TRUE) + 2.2
+  tip_extensions <- tips |>
+    dplyr::transmute(
+      x = tree_x, xend = total_x - tile_width / 2,
+      y = tree_y, yend = tree_y
+    )
 
   ggplot2::ggplot() +
     ggplot2::theme_void(base_size = 9) +
@@ -876,13 +878,19 @@ make_panel_a_figure1 <- function(plot_data, taxonomy_colors) {
       data = edges,
       ggplot2::aes(x = parent_x, xend = parent_x, y = parent_y, yend = child_y,
                    color = branch_class),
-      linewidth = 0.42
+      linewidth = 0.63
     ) +
     ggplot2::geom_segment(
       data = edges,
       ggplot2::aes(x = parent_x, xend = child_x, y = child_y, yend = child_y,
                    color = branch_class),
-      linewidth = 0.42
+      linewidth = 0.63
+    ) +
+    ggplot2::geom_segment(
+      data = tip_extensions,
+      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      inherit.aes = FALSE, linewidth = 0.3, linetype = "dashed",
+      color = "grey80"
     ) +
     ggplot2::scale_color_manual(
       values = taxonomy_colors, breaks = names(taxonomy_colors),
@@ -938,10 +946,9 @@ density_layer_figure1 <- function() {
 }
 
 make_panel_b_figure1 <- function(strain_summary) {
-  data <- strain_summary |>
+  data <- b12_figure_cohort(strain_summary) |>
     dplyr::filter(
-      n_samples >= 3, is.finite(total_b12_gm), total_b12_gm > 0,
-      is.finite(total_b12_gsd), total_b12_gsd > 0,
+      is.finite(total_b12_gm), total_b12_gm > 0,
       is.finite(uptake_b12_mean)
     )
   set.seed(610)
@@ -989,11 +996,10 @@ make_panel_b_figure1 <- function(strain_summary) {
 }
 
 make_panel_c_figure1 <- function(strain_summary) {
-  data <- strain_summary |>
+  data <- b12_figure_cohort(strain_summary) |>
     dplyr::filter(
-      n_samples >= 3, is.finite(total_b12_gm), total_b12_gm > 50,
+      is.finite(total_b12_gm), total_b12_gm > 50,
       is.finite(filtrate_proportion_gm), filtrate_proportion_gm > 0,
-      is.finite(filtrate_proportion_gsd), filtrate_proportion_gsd > 0,
       is.finite(dead_proportion_gm), dead_proportion_gm > 0,
       is.finite(uptake_b12_mean)
     )
@@ -1076,18 +1082,18 @@ gtdb_class_levels <- c(
   intersect(gtdb_class_levels, "Mixed"),
   intersect(gtdb_class_levels, "Unassigned")
 )
-gtdb_class_palette <- c(
-  "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e",
-  "#e6ab02", "#a6761d", "#1f78b4", "#b2df8a", "#fb9a99",
-  "#6a3d9a", "#ff7f00", "#8dd3c7", "#bebada", "#fb8072",
-  "#80b1d3", "#fdb462", "#b3de69", "#fccde5", "#bc80bd"
+gtdb_class_colors <- c(
+  Actinomycetes = "#4E79A7",
+  Alphaproteobacteria = "#EDC948",
+  Bacilli = "#59A14F",
+  Bacteroidia = "#E15759",
+  Gammaproteobacteria = "#9C755F"
 )
-gtdb_class_colors <- stats::setNames(
-  rep(gtdb_class_palette, length.out = length(gtdb_class_levels)),
-  gtdb_class_levels
-)
-gtdb_class_colors["Mixed"] <- "grey65"
-gtdb_class_colors["Unassigned"] <- "grey55"
+gtdb_class_colors <- gtdb_class_colors[
+  intersect(names(gtdb_class_colors), gtdb_class_levels)
+]
+if ("Mixed" %in% gtdb_class_levels) gtdb_class_colors["Mixed"] <- "grey65"
+if ("Unassigned" %in% gtdb_class_levels) gtdb_class_colors["Unassigned"] <- "grey55"
 
 strain_phenotypes <- strain_summary |>
   dplyr::left_join(
@@ -1450,8 +1456,8 @@ figure5_wilcoxon <- figure5_data$B |>
   ) |>
   dplyr::mutate(
     p_label = sprintf("p = %.3f", p_value),
-    segment_y = 1.50,
-    label_y = 1.57
+    segment_y = max(figure5_data$B$estimate, na.rm = TRUE) * 1.08,
+    label_y = max(figure5_data$B$estimate, na.rm = TRUE) * 1.13
   )
 
 figure5_k_paired <- figure5_data$B_k |>
@@ -1505,7 +1511,8 @@ figure5_data$A$added_glucose_mM_C_factor <- factor(
 ## Preprocess Figure S1
 
 Figure S1 uses the strain metadata table directly for sampling coordinates and
-broad environmental categories. GTDB classes are joined from the same GTDB-Tk
+broad environmental categories, with one record per unique collection isolate
+(excluding blank and unknown entries). GTDB classes are joined from the same GTDB-Tk
 tip metadata used for Figure 1.
 
 ```{r preprocess-figure-s1}
@@ -1521,6 +1528,10 @@ figure_s1_metadata <- utils::read.csv(
   stringsAsFactors = FALSE,
   na.strings = c("", "NA")
 ) |>
+  dplyr::filter(!is.na(strain_id), !strain_id %in% c("blank", "unknown")) |>
+  # Duplicate array positions have identical S1 location/environment metadata.
+  # Deduplicate before clustering as well as before taxonomy aggregation.
+  dplyr::distinct(strain_id, .keep_all = TRUE) |>
   dplyr::mutate(
     longitude_collected = as.numeric(longitude_collected),
     latitude_collected = as.numeric(latitude_collected),
@@ -1600,7 +1611,7 @@ utils::write.csv(
 
 ## Preprocess Figures S2-S5
 
-S2 reuses `tree`, `tip_metadata`, and `panel_a_data`; S4-S5 reuse the single
+S2 uses the full QC-genome tree and `tip_metadata`; S4-S5 reuse the single
 `strain_phenotypes` table. Thus the GTDB-Tk tree and strain-level B12 phenotype
 data are not loaded a second time.
 
@@ -1613,26 +1624,34 @@ stop_if_missing(figure_s3_input)
 figure_s3_data <- read_figure_csv(figure_s3_input)
 figure_s3_labels <- dplyr::filter(figure_s3_data, strain_id == "Ecoli_metE")
 
-# S2 is the same complete GTDB-Tk tree object used to generate Figure 1A.
-figure_s2_data <- panel_a_data
+# S2 includes all QC-retained genomes, independent of phenotype availability.
+figure_s2_tree_path <- file.path(
+  project_dir, "data", "processed", "gtdbtk_tree_analysis",
+  "gtdbtk_bac120_study_genomes_bacillati_pseudomonadati_split_rooted.tree"
+)
+stop_if_missing(figure_s2_tree_path)
+figure_s2_tree <- ape::read.tree(figure_s2_tree_path)
+stopifnot(
+  !anyDuplicated(figure_s2_tree$tip.label),
+  setequal(figure_s2_tree$tip.label, b12_qc_genome_ids()),
+  all(figure_s2_tree$tip.label %in% tip_metadata$tip_label)
+)
+figure_s2_data <- make_tree_plot_data_figure1(figure_s2_tree, tip_metadata)
 
 figure_s4_data <- list(
-  A = strain_phenotypes |>
+  A = b12_figure_cohort(strain_phenotypes) |>
     dplyr::filter(
-      n_samples >= 3,
       is.finite(total_b12_gm), total_b12_gm > 50,
       is.finite(filtrate_b12_gm), filtrate_b12_gm > 0
     ),
-  B = strain_phenotypes |>
+  B = b12_figure_cohort(strain_phenotypes) |>
     dplyr::filter(
-      n_samples >= 3,
       is.finite(total_b12_gm), total_b12_gm > 50,
       is.finite(filtrate_b12_gm), filtrate_b12_gm > 0,
       is.finite(uptake_b12_mean)
     ),
-  C = strain_phenotypes |>
+  C = b12_figure_cohort(strain_phenotypes) |>
     dplyr::filter(
-      n_samples >= 3,
       is.finite(total_b12_gm), total_b12_gm > 50,
       is.finite(filtrate_proportion_gm), filtrate_proportion_gm > 0,
       is.finite(uptake_b12_mean)
@@ -1667,9 +1686,9 @@ figure_s4_labels <- c(
 figure_s5_data <- list(A = panel_b_result$data, B = panel_c_result$data)
 ```
 
-## Preprocess Figures S6-S13
+## Preprocess Figures S6-S10
 
-```{r preprocess-figures-s6-s13}
+```{r preprocess-figures-s6-s10}
 supplementary_source_dir <- file.path(project_dir, "data", "processed", "figure_source_data")
 figure_s6_inputs <- c(
   A = file.path(supplementary_source_dir, "b12_trait_classification_analysis", "02C_gtdbtk_tree_binary_traits_tips_source.csv"),
@@ -1677,15 +1696,13 @@ figure_s6_inputs <- c(
 )
 figure_s7_input <- file.path(supplementary_source_dir, "b12_trait_classification_analysis", "03B_top_10_mean_permutation_feature_importance_random_order_block_sd_source.csv")
 figure_s8_input <- file.path(supplementary_source_dir, "b12_trait_classification_analysis", "04C_rf_feature_importance_vs_pyseer_lrt_pvalue_by_phenotype_source.csv")
-figure_s9_input <- file.path(supplementary_source_dir, "b12_release_uptake_death", "06F_live_dead_mix_viability_stain_vs_killed_proportion_source_od600_trait_group2_strain_facets_source.csv")
-figure_s10_input <- file.path(supplementary_source_dir, "b12_trait_survey", "12D_trait_group2_boxplot_source.csv")
-figure_s11_input <- file.path(supplementary_source_dir, "b12_release_uptake_death_modeling", "uptake_fit_dynamics_source_01K.csv")
-figure_s12_input <- file.path(supplementary_source_dir, "b12_release_uptake_death_modeling", "dead_fraction_mix_source_04M_04N_04O.csv")
-figure_s13_inputs <- c(
-  model = file.path(supplementary_source_dir, "b12_release_uptake_death_modeling", "release_uptake_fit_dynamics_source_02A.csv"),
-  empirical = file.path(supplementary_source_dir, "b12_release_uptake_death_modeling", "release_uptake_fit_dynamics_source_02O.csv")
+figure_s9_inputs <- c(
+  survey = file.path(project_dir, "data", "processed", "b12_trait_survey", "b12_trait_survey_results.csv"),
+  mixtures = file.path(supplementary_source_dir, "b12_release_uptake_death", "06F_live_dead_mix_viability_stain_vs_killed_proportion_source_od600_trait_group2_strain_facets_source.csv"),
+  source_cultures = file.path(project_dir, "data", "processed", "b12_release_uptake_death", "b12_od_viability_results_b12_release_uptake_death.csv")
 )
-stop_if_missing(c(figure_s6_inputs, figure_s7_input, figure_s8_input, figure_s9_input, figure_s10_input, figure_s11_input, figure_s12_input, figure_s13_inputs))
+figure_s10_input <- file.path(supplementary_source_dir, "b12_trait_survey", "12D_trait_group2_boxplot_source.csv")
+stop_if_missing(c(figure_s6_inputs, figure_s7_input, figure_s8_input, figure_s9_inputs, figure_s10_input))
 
 figure_s6_data <- lapply(figure_s6_inputs, read_figure_csv)
 figure_s6_data <- lapply(figure_s6_data, function(x) {
@@ -1753,22 +1770,69 @@ figure_s8_data <- read_figure_csv(figure_s8_input) |>
       levels = c("B12 uptake", "B12 synthesis")
     )
   )
-figure_s9_data <- read_figure_csv(figure_s9_input)
-figure_s10_data <- read_figure_csv(figure_s10_input)
-figure_s11_data <- read_figure_csv(figure_s11_input)
-figure_s12_data <- read_figure_csv(figure_s12_input)
-figure_s13_model <- read_figure_csv(figure_s13_inputs[["model"]])
-figure_s13_empirical <- read_figure_csv(figure_s13_inputs[["empirical"]])
-figure_s13_empirical$added_glucose_mM_C_factor <- factor(
-  figure_s13_empirical$added_glucose_mM_C_factor, levels = c(0, 10)
-)
-figure_s13_model <- figure_s13_model |>
+# Figure S9A uses raw survey measurements, including blanks, without phenotype/
+# genome cohort filtering. S9B subtracts the matched 0%-killed fluorescence and
+# uses blank-adjusted source OD, excluding blanks and nonpositive log-axis pairs.
+figure_s9a_data <- read_figure_csv(figure_s9_inputs[["survey"]]) |>
+  dplyr::filter(
+    is.finite(raw_od600), raw_od600 > 0,
+    is.finite(dead_stain), dead_stain > 0
+  ) |>
   dplyr::mutate(
-    trait_group2 = dplyr::if_else(is.na(b12_trait_group2) | b12_trait_group2 == "", "NA", b12_trait_group2),
-    trait_group2_strain_id = paste(trait_group2, strain_id, sep = "_"),
-    added_glucose_mM_C_factor = factor(added_glucose_mM_C, levels = c(0, 10))
+    sample_type = factor(
+      dplyr::if_else(strain_id == "blank", "Blank", "Non-blank"),
+      levels = c("Non-blank", "Blank")
+    )
+  ) |>
+  dplyr::arrange(sample_type)
+figure_s9_source_od <- read_figure_csv(figure_s9_inputs[["source_cultures"]]) |>
+  dplyr::filter(
+    experiment_type == "live_dead_source", sample_time_minute == 0,
+    killed_proportion == 0
+  ) |>
+  dplyr::select(
+    experiment_name, biological_replicate, strain_id,
+    source_culture_adjusted_od600_0min = adjusted_od600
   )
-
+figure_s9_join_keys <- c("experiment_name", "biological_replicate", "strain_id")
+if (anyDuplicated(figure_s9_source_od[figure_s9_join_keys])) {
+  stop("Figure S9 source-culture OD join contains duplicate replicate keys.")
+}
+figure_s9_mixtures <- read_figure_csv(figure_s9_inputs[["mixtures"]])
+figure_s9_baselines <- figure_s9_mixtures |>
+  dplyr::filter(killed_proportion == 0) |>
+  dplyr::select(
+    dplyr::all_of(figure_s9_join_keys), baseline_fluorescence = live_stain
+  )
+if (anyDuplicated(figure_s9_baselines[figure_s9_join_keys])) {
+  stop("Figure S9 fluorescence baseline join contains duplicate replicate keys.")
+}
+figure_s9b_all_data <- figure_s9_mixtures |>
+  dplyr::left_join(figure_s9_source_od, by = figure_s9_join_keys) |>
+  dplyr::left_join(figure_s9_baselines, by = figure_s9_join_keys) |>
+  dplyr::mutate(
+    killed_cell_od600 = killed_proportion * source_culture_adjusted_od600_0min,
+    fluorescence_increment = live_stain - baseline_fluorescence,
+    trait_group2 = factor(
+      as.character(trait_group2), levels = c("retainer", "provider", "reclaimer", "blank")
+    )
+  )
+if (any(!is.finite(figure_s9b_all_data$baseline_fluorescence)) ||
+    any(!is.finite(figure_s9b_all_data$source_culture_adjusted_od600_0min))) {
+  stop("Figure S9 requires a finite matched baseline and source-culture OD for every mixture.")
+}
+# Preserve zero/negative differences in figure_s9b_all_data; only the plotted
+# subset excludes values that cannot appear on logarithmic axes.
+figure_s9b_data <- figure_s9b_all_data |>
+  dplyr::filter(
+    strain_id != "blank", killed_proportion > 0,
+    is.finite(killed_cell_od600), killed_cell_od600 > 0,
+    is.finite(fluorescence_increment), fluorescence_increment > 0
+  ) |>
+  droplevels()
+# In the mixture data, live_stain is raw DCS1 fluorescence of the mixed sample;
+# survey dead_stain is raw DCS1 fluorescence after heat killing.
+figure_s10_data <- read_figure_csv(figure_s10_input)
 # Reuse the alphabetical within-trait-group ordinals established for Figure 4.
 supplementary_strain_ordinals <- figure4_strain_ordinals |>
   dplyr::transmute(
@@ -1796,70 +1860,66 @@ supplementary_facet_levels <- supplementary_strain_ordinals |>
 supplementary_facet_levels <- c(
   "blank", setdiff(supplementary_facet_levels, "blank")
 )
-for (object_name in c("figure_s9_data", "figure_s11_data", "figure_s12_data", "figure_s13_model", "figure_s13_empirical")) {
-  object <- get(object_name)
-  if (!"trait_group2" %in% names(object)) {
-    object$trait_group2 <- object$b12_trait_group2
-  }
-  object <- object |>
-    dplyr::mutate(
-      trait_group2 = dplyr::if_else(
-        strain_id == "blank", "blank", as.character(trait_group2)
-      )
-    ) |>
-    dplyr::select(-dplyr::any_of(c("trait_group2_strain_ordinal", "trait_group2_strain_label"))) |>
-    dplyr::left_join(
-      supplementary_strain_ordinals,
-      by = c("strain_id", "trait_group2")
-    ) |>
-    dplyr::filter(!is.na(trait_group2_strain_ordinal)) |>
-    dplyr::mutate(
-      trait_group2 = factor(trait_group2, levels = c("blank", trait_group_levels)),
-      trait_group2_strain_label = factor(
-        dplyr::if_else(
-          strain_id == "blank", "blank",
-          paste(trait_group2, trait_group2_strain_ordinal, sep = " no.")
-        ),
-        levels = supplementary_facet_levels
-      )
-    )
-  assign(object_name, object)
-}
 ```
 
-## Preprocess Figure S14
+## Preprocess Figure S15
 
-```{r preprocess-figure-s14}
-figure_s14_source_dir <- file.path(
+```{r preprocess-figure-s15}
+figure_s15_source_dir <- file.path(
   supplementary_source_dir, "b12_release_uptake_death"
 )
-figure_s14_inputs <- c(
-  A = file.path(figure_s14_source_dir, "12G_release_uptake_b12_240min_endpoint_all_strains_b12_0_trait_group2_source.csv"),
-  B = file.path(figure_s14_source_dir, "12H_release_uptake_b12_240min_endpoint_all_strains_b12_500_trait_group2_source.csv"),
-  C = file.path(figure_s14_source_dir, "12I_release_uptake_adjusted_od600_240min_b12_0_trait_group2_source.csv"),
-  D = file.path(figure_s14_source_dir, "12K_release_uptake_adjusted_live_stain_240min_b12_0_trait_group2_log_y_source.csv"),
-  E = file.path(figure_s14_source_dir, "09E_filtrate_b12_per_adjusted_live_stain_glucose_10_vs_0_source.csv"),
-  F = file.path(figure_s14_source_dir, "09H_filtrate_b12_per_adjusted_live_stain_glucose_10_over_0_by_trait_group2_source.csv")
+figure_s15_inputs <- c(
+  A = file.path(figure_s15_source_dir, "12G_release_uptake_b12_240min_endpoint_all_strains_b12_0_trait_group2_source.csv"),
+  B = file.path(figure_s15_source_dir, "12H_release_uptake_b12_240min_endpoint_all_strains_b12_500_trait_group2_source.csv"),
+  C = file.path(figure_s15_source_dir, "12I_release_uptake_adjusted_od600_240min_b12_0_trait_group2_source.csv"),
+  D = file.path(figure_s15_source_dir, "12K_release_uptake_adjusted_live_stain_240min_b12_0_trait_group2_log_y_source.csv"),
+  E = file.path(figure_s15_source_dir, "09E_filtrate_b12_per_adjusted_live_stain_glucose_10_vs_0_source.csv"),
+  F = file.path(figure_s15_source_dir, "09H_filtrate_b12_per_adjusted_live_stain_glucose_10_over_0_by_trait_group2_source.csv")
 )
-stop_if_missing(figure_s14_inputs)
-figure_s14_data <- lapply(figure_s14_inputs, read_figure_csv)
+stop_if_missing(figure_s15_inputs)
+figure_s15_data <- lapply(figure_s15_inputs, read_figure_csv)
 
-for (panel in names(figure_s14_data)) {
-  figure_s14_data[[panel]]$b12_trait_group2 <- factor(
-    figure_s14_data[[panel]]$b12_trait_group2,
+# Initial source-culture OD precedes both experimental setups. Use strain means
+# across cultures, matching the aggregation used for the four-hour endpoints.
+figure_s15_baseline_path <- file.path(
+  project_dir, "data", "processed", "b12_release_uptake_death",
+  "b12_od_viability_results_b12_release_uptake_death.csv"
+)
+stop_if_missing(figure_s15_baseline_path)
+figure_s15c_traits <- dplyr::distinct(figure_s15_data$C, strain_id, b12_trait_group2)
+figure_s15c_baseline <- read_figure_csv(figure_s15_baseline_path) |>
+  dplyr::filter(
+    experiment_type == "live_dead_source", sample_time_minute == 0,
+    killed_proportion == 0, is.finite(adjusted_od600),
+    strain_id %in% figure_s15c_traits$strain_id
+  ) |>
+  dplyr::group_by(strain_id) |>
+  dplyr::summarise(
+    mean_measurement = mean(adjusted_od600), n_cultures = dplyr::n(),
+    .groups = "drop"
+  ) |>
+  dplyr::left_join(figure_s15c_traits, by = "strain_id")
+stopifnot(
+  !anyDuplicated(figure_s15c_traits$strain_id),
+  setequal(figure_s15c_baseline$strain_id, figure_s15c_traits$strain_id)
+)
+
+for (panel in names(figure_s15_data)) {
+  figure_s15_data[[panel]]$b12_trait_group2 <- factor(
+    figure_s15_data[[panel]]$b12_trait_group2,
     levels = trait_group_levels
   )
 }
 for (panel in c("A", "B", "C", "D")) {
-  figure_s14_data[[panel]]$added_glucose_mM_C <- factor(
-    figure_s14_data[[panel]]$added_glucose_mM_C,
+  figure_s15_data[[panel]]$added_glucose_mM_C <- factor(
+    figure_s15_data[[panel]]$added_glucose_mM_C,
     levels = c(0, 10)
   )
 }
-figure_s14_data$E <- figure_s14_data$E |>
+figure_s15_data$E <- figure_s15_data$E |>
   dplyr::filter(!is.na(b12_trait_group2), strain_id != "blank")
 
-make_figure_s14_paired_statistics <- function(dat, value_column, log_y = FALSE) {
+make_figure_s15_paired_statistics <- function(dat, value_column, log_y = FALSE) {
   value_column <- rlang::ensym(value_column)
   maximum <- max(dplyr::pull(dat, !!value_column), na.rm = TRUE)
 
@@ -1891,14 +1951,14 @@ make_figure_s14_paired_statistics <- function(dat, value_column, log_y = FALSE) 
     )
 }
 
-figure_s14_statistics <- list(
-  A = make_figure_s14_paired_statistics(figure_s14_data$A, mean_b12),
-  B = make_figure_s14_paired_statistics(figure_s14_data$B, mean_b12),
-  C = make_figure_s14_paired_statistics(figure_s14_data$C, mean_measurement),
-  D = make_figure_s14_paired_statistics(figure_s14_data$D, mean_measurement, log_y = TRUE)
+figure_s15_statistics <- list(
+  A = make_figure_s15_paired_statistics(figure_s15_data$A, mean_b12),
+  B = make_figure_s15_paired_statistics(figure_s15_data$B, mean_b12),
+  C = make_figure_s15_paired_statistics(figure_s15_data$C, mean_measurement),
+  D = make_figure_s15_paired_statistics(figure_s15_data$D, mean_measurement, log_y = TRUE)
 )
 
-figure_s14f_tests <- figure_s14_data$F |>
+figure_s15f_tests <- figure_s15_data$F |>
   dplyr::filter(is.finite(.data$glucose_10_over_0), .data$glucose_10_over_0 > 0) |>
   dplyr::group_by(.data$b12_trait_group2) |>
   dplyr::summarise(
@@ -1910,10 +1970,10 @@ figure_s14f_tests <- figure_s14_data$F |>
   dplyr::mutate(p_label = sprintf("p = %.3f", .data$p_value))
 ```
 
-## Preprocess Figure S15
+## Preprocess Figure S17
 
-```{r preprocess-figure-s15}
-figure_s15_inputs <- c(
+```{r preprocess-figure-s17}
+figure_s17_inputs <- c(
   ko_matrix = file.path(
     project_dir, "data", "raw", "genome_pipeline_nf_core", "ko_count_matrix.tsv"
   ),
@@ -1930,9 +1990,9 @@ figure_s15_inputs <- c(
     "gwa_pyseer_mixed_tree_comparison_all_traits.csv"
   )
 )
-stop_if_missing(figure_s15_inputs)
+stop_if_missing(figure_s17_inputs)
 
-figure_s15_candidates <- tibble::tribble(
+figure_s17_candidates <- tibble::tribble(
   ~ko,      ~gene_symbol,
   "K16092", "btuB",
   "K06858", "btuF",
@@ -1951,36 +2011,36 @@ figure_s15_candidates <- tibble::tribble(
     display_label = factor(.data$display_label, levels = rev(.data$display_label))
   )
 
-figure_s15_ko <- utils::read.delim(
-  figure_s15_inputs[["ko_matrix"]], check.names = FALSE,
+figure_s17_ko <- utils::read.delim(
+  figure_s17_inputs[["ko_matrix"]], check.names = FALSE,
   stringsAsFactors = FALSE
 ) |>
   dplyr::rename(strain_id = genome)
-figure_s15_phenotype <- utils::read.csv(
-  figure_s15_inputs[["phenotypes"]], check.names = FALSE,
+figure_s17_phenotype <- utils::read.csv(
+  figure_s17_inputs[["phenotypes"]], check.names = FALSE,
   stringsAsFactors = FALSE, na.strings = c("", "NA")
 ) |>
   dplyr::select(strain_id, uptake_b12_mean) |>
   dplyr::distinct(.data$strain_id, .keep_all = TRUE)
-figure_s15_tree <- ape::read.tree(figure_s15_inputs[["tree"]])
+figure_s17_tree <- ape::read.tree(figure_s17_inputs[["tree"]])
 
-figure_s15_model_data <- figure_s15_ko |>
-  dplyr::inner_join(figure_s15_phenotype, by = "strain_id") |>
+figure_s17_model_data <- figure_s17_ko |>
+  dplyr::inner_join(figure_s17_phenotype, by = "strain_id") |>
   dplyr::filter(
-    .data$strain_id %in% figure_s15_tree$tip.label,
+    .data$strain_id %in% figure_s17_tree$tip.label,
     is.finite(.data$uptake_b12_mean)
   )
 
 # Test every variable KO in the matrix. Candidate rows are selected only after
 # BH adjustment, so the ordinary-regression correction is genome-wide rather
 # than restricted to the 11 displayed transporter KOs.
-figure_s15_all_kos <- setdiff(names(figure_s15_ko), "strain_id")
-figure_s15_lm_results <- dplyr::bind_rows(lapply(figure_s15_all_kos, function(ko) {
-  present <- as.integer(figure_s15_model_data[[ko]] > 0)
+figure_s17_all_kos <- setdiff(names(figure_s17_ko), "strain_id")
+figure_s17_lm_results <- dplyr::bind_rows(lapply(figure_s17_all_kos, function(ko) {
+  present <- as.integer(figure_s17_model_data[[ko]] > 0)
   if (length(unique(present[!is.na(present)])) < 2L) {
     return(tibble::tibble(ko = ko, beta = NA_real_, raw_p_value = NA_real_))
   }
-  fit <- stats::lm(figure_s15_model_data$uptake_b12_mean ~ present)
+  fit <- stats::lm(figure_s17_model_data$uptake_b12_mean ~ present)
   coefficient_table <- summary(fit)$coefficients
   tibble::tibble(
     ko = ko,
@@ -1993,8 +2053,8 @@ figure_s15_lm_results <- dplyr::bind_rows(lapply(figure_s15_all_kos, function(ko
     n_tests_in_bh_family = sum(!is.na(.data$raw_p_value))
   )
 
-figure_s15_pyseer <- utils::read.csv(
-  figure_s15_inputs[["pyseer"]], check.names = FALSE,
+figure_s17_pyseer <- utils::read.csv(
+  figure_s17_inputs[["pyseer"]], check.names = FALSE,
   stringsAsFactors = FALSE, na.strings = c("", "NA")
 ) |>
   dplyr::filter(.data$trait == "uptake_b12_mean") |>
@@ -2009,23 +2069,23 @@ figure_s15_pyseer <- utils::read.csv(
   # Expansion occurs after the genome-wide Pyseer BH correction. Cluster
   # members inherit one test result and are not counted as independent tests.
   tidyr::separate_rows(ko, sep = ",") |>
-  dplyr::filter(.data$ko %in% figure_s15_candidates$ko)
+  dplyr::filter(.data$ko %in% figure_s17_candidates$ko)
 
-figure_s15_data <- dplyr::bind_rows(
-  figure_s15_lm_results |>
-    dplyr::filter(.data$ko %in% figure_s15_candidates$ko) |>
+figure_s17_data <- dplyr::bind_rows(
+  figure_s17_lm_results |>
+    dplyr::filter(.data$ko %in% figure_s17_candidates$ko) |>
     dplyr::mutate(
       method = "Ordinary linear regression",
       representative_variant = .data$ko
     ),
-  figure_s15_pyseer |>
+  figure_s17_pyseer |>
     dplyr::mutate(method = "Pyseer + population structure")
 ) |>
   tidyr::complete(
-    ko = figure_s15_candidates$ko,
+    ko = figure_s17_candidates$ko,
     method = c("Ordinary linear regression", "Pyseer + population structure")
   ) |>
-  dplyr::left_join(figure_s15_candidates, by = "ko") |>
+  dplyr::left_join(figure_s17_candidates, by = "ko") |>
   dplyr::mutate(
     method = factor(
       .data$method,
@@ -2044,23 +2104,23 @@ figure_s15_data <- dplyr::bind_rows(
   )
 
 utils::write.csv(
-  figure_s15_data,
-  file.path(output_dir, "FigureS15_source.csv"),
+  figure_s17_data,
+  file.path(output_dir, "FigureS17_source.csv"),
   row.names = FALSE
 )
 ```
 
-## Preprocess Figure S16
+## Preprocess Figure S18
 
-```{r preprocess-figure-s16}
-figure_s16_input <- file.path(
+```{r preprocess-figure-s18}
+figure_s18_input <- file.path(
   project_dir, "data", "raw", "b12_assay_comparison",
   "Ecoli_chlamy_b12_assay_dataset.csv"
 )
-stop_if_missing(figure_s16_input)
+stop_if_missing(figure_s18_input)
 
-figure_s16_data <- utils::read.csv(
-  figure_s16_input, check.names = FALSE, stringsAsFactors = FALSE,
+figure_s18_data <- utils::read.csv(
+  figure_s18_input, check.names = FALSE, stringsAsFactors = FALSE,
   na.strings = c("", "NA")
 ) |>
   dplyr::filter(
@@ -2085,22 +2145,22 @@ figure_s16_data <- utils::read.csv(
   )
 
 utils::write.csv(
-  figure_s16_data,
-  file.path(output_dir, "FigureS16_source.csv"),
+  figure_s18_data,
+  file.path(output_dir, "FigureS18_source.csv"),
   row.names = FALSE
 )
 ```
 
-## Preprocess Figure S17
+## Preprocess Figure S19
 
-```{r preprocess-figure-s17}
-figure_s17_input <- file.path(
+```{r preprocess-figure-s19}
+figure_s19_input <- file.path(
   project_dir, "data", "intermediate", "b12_trait_survey",
   "b12_assay_combined_b12_trait_survey.csv"
 )
-stop_if_missing(figure_s17_input)
+stop_if_missing(figure_s19_input)
 
-figure_s17_data <- read_figure_csv(figure_s17_input) |>
+figure_s19_data <- read_figure_csv(figure_s19_input) |>
   dplyr::filter(
     (sample_type == "filtrate" & assay_type == "standard") |
       assay_type == "sample"
@@ -2153,7 +2213,9 @@ stop_if_missing(figure1_processed)
 panel_label_size <- 74
 panel_label_x <- 28
 panel_label_y <- 23
-panel_label_font <- "Helvetica"
+# Use an explicit bold face: ImageMagick resolves Helvetica's collection to
+# its regular face even when weight = 700 is requested on macOS.
+panel_label_font <- "Arial-Bold"
 panel_label_color <- "black"
 
 add_panel_label <- function(image, label) {
@@ -2233,21 +2295,6 @@ figure2 <- ggplot2::ggplot(
     width = 0.62, color = "grey25", linewidth = 0.35,
     outlier.shape = NA, position = ggplot2::position_dodge(width = 0.72)
   ) +
-  ggplot2::geom_segment(
-    data = figure2_pvalues,
-    ggplot2::aes(x = x_start, xend = x_end, y = y, yend = y),
-    inherit.aes = FALSE, linewidth = 0.35
-  ) +
-  ggplot2::geom_segment(
-    data = figure2_pvalues,
-    ggplot2::aes(x = x_start, xend = x_start, y = y - 0.01, yend = y),
-    inherit.aes = FALSE, linewidth = 0.35
-  ) +
-  ggplot2::geom_segment(
-    data = figure2_pvalues,
-    ggplot2::aes(x = x_end, xend = x_end, y = y - 0.01, yend = y),
-    inherit.aes = FALSE, linewidth = 0.35
-  ) +
   ggplot2::geom_text(
     data = figure2_pvalues,
     ggplot2::aes(x = (x_start + x_end) / 2, y = y_text, label = p_label),
@@ -2269,7 +2316,11 @@ figure2 <- ggplot2::ggplot(
   ) +
   ggplot2::facet_wrap(
     ggplot2::vars(dataset_label, trait_facet_label),
-    ncol = 4, labeller = ggplot2::label_value
+    ncol = 4,
+    labeller = function(labels) list(
+      ifelse(labels$trait_facet_label == "EC-B12 fraction",
+             "Extracellular B12", as.character(labels$trait_facet_label))
+    )
   ) +
   ggplot2::scale_y_continuous(
     limits = c(-0.05, 1.15), breaks = seq(0, 1, 0.2),
@@ -2288,11 +2339,32 @@ figure2 <- ggplot2::ggplot(
     axis.text.y = ggplot2::element_text(color = "black")
   )
 
+
+# Center each dataset title over its pair of facet panels.
+figure2 <- ggplot2::ggplotGrob(figure2)
+figure2_panel_columns <- sort(unique(
+  figure2$layout$l[grepl("^panel-", figure2$layout$name)]
+))
+figure2 <- gtable::gtable_add_rows(figure2, grid::unit(18, "pt"), pos = 0)
+for (i in seq_len(2)) {
+  pair <- figure2_panel_columns[(2 * i - 1):(2 * i)]
+  figure2 <- gtable::gtable_add_grob(
+    figure2,
+    grid::textGrob(
+      c("All strains", "B12 synthesizers")[[i]],
+      gp = grid::gpar(fontsize = 10, fontface = "bold")
+    ),
+    t = 1, l = pair[[1]], r = pair[[2]], clip = "off",
+    name = paste0("dataset-title-", i)
+  )
+}
+
 figure2_png <- file.path(output_dir, "Figure2.png")
 figure2_pdf <- file.path(output_dir, "Figure2.pdf")
 ggplot2::ggsave(figure2_png, figure2, width = 7.1, height = 2.7, dpi = 400, bg = "white")
 ggplot2::ggsave(figure2_pdf, figure2, width = 7.1, height = 2.7, device = grDevices::cairo_pdf)
-figure2
+grid::grid.newpage()
+grid::grid.draw(figure2)
 ```
 
 ## Figure 3
@@ -2326,7 +2398,7 @@ figure3a <- ggplot2::ggplot(
     colour = "black", fill = "grey70"
   ) +
   ggplot2::scale_color_manual(values = trait_group_colors, breaks = trait_group_levels, name = "Trait group") +
-  ggplot2::scale_x_log10(limits = c(0.002, 1)) +
+  ggplot2::scale_x_log10(limits = c(0.001, 1)) +
   ggplot2::scale_y_log10(limits = c(0.0015, 1), breaks = c(0.01, 0.1, 1)) +
   ggplot2::geom_text(
     data = figure3a_annotation,
@@ -2395,7 +2467,8 @@ figure3 <- (
     (figure3b + ggplot2::labs(tag = "B") + ggplot2::theme(legend.position = "none")) |
     patchwork::wrap_elements(full = figure3_legend)
 ) +
-  patchwork::plot_layout(widths = c(1, 0.04, 1, 0.38)) &
+  # Reallocate spacer/legend room to widen both plotting areas by exactly 5%.
+  patchwork::plot_layout(widths = c(1.05, 0, 1.05, 0.32)) &
   ggplot2::theme(plot.tag = ggplot2::element_text(face = "bold", size = 11))
 
 figure3_png <- file.path(output_dir, "Figure3.png")
@@ -2454,7 +2527,10 @@ figure4b <- ggplot2::ggplot(
   ) +
   ggplot2::scale_color_manual(values = trait_group_colors, breaks = trait_group_levels) +
   ggplot2::scale_y_log10() +
-  ggplot2::labs(x = "Trait group", y = "uptake rate: k") +
+  ggplot2::labs(
+    x = "Trait group",
+    y = expression("Uptake: " * italic(k) ~ (OD[600]^{-1} ~ min^{-1}))
+  ) +
   figure4_theme +
   ggplot2::theme(plot.margin = ggplot2::margin(t = 12, r = 5.5, b = 5.5, l = 5.5))
 
@@ -2514,17 +2590,23 @@ figure4d <- ggplot2::ggplot(
     axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5)
   )
 
+# Lower only panel B's y-axis title by 4% of the data-panel height.
+figure4b_grob <- ggplot2::ggplotGrob(figure4b)
+figure4b_ylabel <- which(figure4b_grob$layout$name == "ylab-l")
+figure4b_grob$grobs[[figure4b_ylabel]]$children[[1]]$y <-
+  figure4b_grob$grobs[[figure4b_ylabel]]$children[[1]]$y - grid::unit(0.04, "npc")
+
 figure4_design <- c(
   patchwork::area(t = 1, l = 1, b = 1, r = 1),
   patchwork::area(t = 1, l = 2, b = 1, r = 2),
   patchwork::area(t = 2, l = 1, b = 2, r = 1),
   patchwork::area(t = 2, l = 2, b = 2, r = 2)
 )
-figure4 <- figure4a + patchwork::wrap_elements(full = figure4b) +
+figure4 <- figure4a + patchwork::wrap_elements(full = figure4b_grob) +
   figure4c + patchwork::wrap_elements(full = figure4d) +
   patchwork::plot_layout(
     design = figure4_design,
-    widths = c(5.0, 2.1),
+    widths = c(4.8, 2.3),
     heights = c(1, 1)
   ) +
   patchwork::plot_annotation(tag_levels = "A") &
@@ -2549,7 +2631,9 @@ figure5_theme <- ggplot2::theme_bw(base_size = 8.7) +
     panel.grid.minor = ggplot2::element_blank(),
     strip.background = ggplot2::element_rect(fill = "grey95"),
     plot.title = ggplot2::element_blank(),
-    plot.subtitle = ggplot2::element_blank()
+    plot.subtitle = ggplot2::element_blank(),
+    # Apply bold tags before wrapping panels; retain their existing text size.
+    plot.tag = ggplot2::element_text(face = "bold")
   )
 
 figure5a <- ggplot2::ggplot(
@@ -2635,11 +2719,13 @@ figure5b <- ggplot2::ggplot(
     values = trait_group_colors, breaks = trait_group_levels
   ) +
   ggplot2::scale_y_continuous(
-    limits = c(-0.05, 1.7), expand = ggplot2::expansion(mult = c(0, 0))
+    limits = c(-0.03, 1.24) * max(figure5_data$B$estimate, na.rm = TRUE),
+    expand = ggplot2::expansion(mult = c(0, 0))
   ) +
   ggplot2::facet_wrap(ggplot2::vars(b12_trait_group2), nrow = 1) +
   ggplot2::labs(
-    x = "Added glucose (mM C)", y = "release rate: r",
+    x = "Added glucose (mM C)",
+    y = expression("Release: " * italic(r) ~ (pM ~ OD[600]^{-1} ~ min^{-1})),
     title = NULL, subtitle = NULL, color = NULL
   ) +
   figure5_theme +
@@ -2659,16 +2745,20 @@ figure5c <- ggplot2::ggplot(
     values = trait_group_colors, breaks = trait_group_levels,
     name = "Trait group"
   ) +
-  ggplot2::labs(x = "uptake rate: k", y = "release rate: r") +
+  ggplot2::labs(
+    x = expression("Uptake: " * italic(k) ~ (OD[600]^{-1} ~ min^{-1})),
+    y = expression("Release: " * italic(r) ~ (pM ~ OD[600]^{-1} ~ min^{-1}))
+  ) +
   figure5_theme +
   ggplot2::theme(legend.position = "none", aspect.ratio = 1)
 
 figure5d_stats <- figure5_data$D_statistics[1, ]
 figure5d_pearson_r <- sign(figure5d_stats$slope) * sqrt(figure5d_stats$r_squared)
 figure5d_label <- sprintf(
-  "Pearson's r = %.3f\np = %.3g",
+  "Pearson's r = %.3f\n%s",
   figure5d_pearson_r,
-  figure5d_stats$slope_p_value
+  if (figure5d_stats$slope_p_value < 0.001) "p<0.001" else
+    sprintf("p = %.3g", figure5d_stats$slope_p_value)
 )
 
 figure5d <- ggplot2::ggplot(
@@ -2710,7 +2800,7 @@ figure5d <- figure5d + ggplot2::theme(legend.position = "none")
 figure5_top <- (
   (figure5a + ggplot2::labs(tag = "A")) |
     patchwork::wrap_elements(full = figure5b + ggplot2::labs(tag = "B"))
-) + patchwork::plot_layout(widths = c(2.2, 1)) &
+) + patchwork::plot_layout(widths = c(2.112, 1.088)) &
   ggplot2::theme(plot.margin = ggplot2::margin(t = 5.5, r = 5.5, b = 0, l = 5.5))
 figure5_bottom <- (
   (figure5c + ggplot2::labs(tag = "C")) |
@@ -2792,7 +2882,7 @@ make_figure5_k_subpanel <- function(log_y = FALSE) {
     ggplot2::facet_wrap(ggplot2::vars(b12_trait_group2), nrow = 1) +
     ggplot2::labs(
       x = "Added glucose (mM C)",
-      y = "uptake rate: k",
+      y = expression("Uptake: " * italic(k) ~ (OD[600]^{-1} ~ min^{-1})),
       title = if (log_y) {
         "Uptake rate by glucose treatment (log scale)"
       } else {
@@ -2866,6 +2956,8 @@ figure5_05_2
 
 ```{r assemble-figure-s1, fig.width=7.1, fig.height=4.6, out.width="100%"}
 figure_s1_states <- ggplot2::map_data("state")
+figure_s1_class_colors <- gtdb_class_colors
+figure_s1_class_colors["Unassigned"] <- "grey55"
 
 figure_s1a <- ggplot2::ggplot() +
   ggplot2::geom_polygon(
@@ -2887,7 +2979,7 @@ figure_s1a <- ggplot2::ggplot() +
     panel.grid = ggplot2::element_blank(),
     axis.text = ggplot2::element_blank(),
     axis.ticks = ggplot2::element_blank(),
-    legend.position = c(0.5, -0.085),
+    legend.position = "inside", legend.position.inside = c(0.5, -0.20),
     legend.direction = "horizontal",
     legend.background = ggplot2::element_rect(
       fill = scales::alpha("white", 0.82), colour = NA
@@ -2902,8 +2994,8 @@ figure_s1b <- ggplot2::ggplot(
 ) +
   ggplot2::geom_col(width = 0.72, colour = "white", linewidth = 0.15) +
   ggplot2::scale_fill_manual(
-    values = gtdb_class_colors,
-    breaks = names(gtdb_class_colors),
+    values = figure_s1_class_colors,
+    breaks = names(figure_s1_class_colors),
     name = "Genome-derived\nGTDB-Tk class",
     drop = FALSE
   ) +
@@ -2924,12 +3016,22 @@ figure_s1b <- ggplot2::ggplot(
   )
 
 figure_s1b_legend <- cowplot::get_legend(figure_s1b)
+figure_s1_tag_theme <- ggplot2::theme(plot.tag = ggplot2::element_text(face = "bold"))
+# Shorten B's data panel by 30%, retaining its width and all text sizes.
+# Equal space above and below keeps the shortened panel vertically centred.
+figure_s1b_grob <- ggplot2::ggplotGrob(
+  figure_s1b + ggplot2::labs(tag = "B") + figure_s1_tag_theme +
+    ggplot2::theme(legend.position = "none")
+)
+figure_s1b_panel_row <- figure_s1b_grob$layout$t[figure_s1b_grob$layout$name == "panel"]
+figure_s1b_grob$heights[figure_s1b_panel_row] <- grid::unit(0.70, "null")
+figure_s1b_grob <- gtable::gtable_add_rows(figure_s1b_grob, grid::unit(0.15, "null"), pos = 0)
+figure_s1b_grob <- gtable::gtable_add_rows(figure_s1b_grob, grid::unit(0.15, "null"), pos = -1)
 figure_s1 <- (
-  patchwork::wrap_elements(full = figure_s1a + ggplot2::labs(tag = "A")) |
-    patchwork::wrap_elements(
-      full = figure_s1b + ggplot2::labs(tag = "B") +
-        ggplot2::theme(legend.position = "none")
-    ) |
+  patchwork::wrap_elements(
+    full = figure_s1a + ggplot2::labs(tag = "A") + figure_s1_tag_theme
+  ) |
+    patchwork::wrap_elements(full = figure_s1b_grob) |
     patchwork::wrap_elements(full = figure_s1b_legend)
 ) +
   patchwork::plot_layout(widths = c(0.55, 0.25, 0.20)) &
@@ -3005,7 +3107,7 @@ figure_s2_tips <- figure_s2_data$tips |>
     by = c("tip_label" = "strain_id")
   ) |>
   dplyr::mutate(
-    tree_x = figure_s2_data$tree_y_max - figure_s2_data$cladogram_tip_y,
+    tree_x = figure_s2_data$tree_y_max - tip_y,
     tree_y = x,
     broad_environment = dplyr::coalesce(
       .data$broad_environment, "Unresolved"
@@ -3032,6 +3134,12 @@ figure_s2_edges <- figure_s2_data$edges |>
     branch_class
   )
 figure_s2_width <- diff(range(c(figure_s2_edges$parent_x, figure_s2_edges$child_x)))
+figure_s2_label_x <- max(figure_s2_tips$tree_x, na.rm = TRUE) + figure_s2_width * 0.025
+figure_s2_tip_extensions <- figure_s2_tips |>
+  dplyr::transmute(
+    x = tree_x, xend = figure_s2_label_x,
+    y = tree_y, yend = tree_y
+  )
 figure_s2_environment_colors <- c(
   soil = "#8C6D31", freshwater = "#3182BD",
   marine = "#31A354", Unresolved = "grey65"
@@ -3043,12 +3151,12 @@ figure_s2 <- ggplot2::ggplot() +
     ggplot2::aes(
       x = parent_x, xend = parent_x, y = parent_y, yend = child_y,
       color = branch_class
-    ), linewidth = 0.42
+    ), linewidth = 0.63
   ) +
   ggplot2::geom_text(
     data = figure_s2_tips,
     ggplot2::aes(
-      x = tree_x + figure_s2_width * 0.015,
+      x = figure_s2_label_x + figure_s2_width * 0.015,
       y = tree_y,
       label = genus_label
     ),
@@ -3059,7 +3167,13 @@ figure_s2 <- ggplot2::ggplot() +
     ggplot2::aes(
       x = parent_x, xend = child_x, y = child_y, yend = child_y,
       color = branch_class
-    ), linewidth = 0.42
+    ), linewidth = 0.63
+  ) +
+  ggplot2::geom_segment(
+    data = figure_s2_tip_extensions,
+    ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+    inherit.aes = FALSE, linewidth = 0.25, linetype = "dashed",
+    color = "grey80"
   ) +
   ggplot2::scale_color_manual(
     values = gtdb_class_colors,
@@ -3073,7 +3187,7 @@ figure_s2 <- ggplot2::ggplot() +
   ) +
   ggplot2::geom_point(
     data = figure_s2_tips,
-    ggplot2::aes(x = tree_x, y = tree_y, fill = broad_environment),
+    ggplot2::aes(x = figure_s2_label_x, y = tree_y, fill = broad_environment),
     shape = 21, size = 1.5, stroke = 0.18, color = "white"
   ) +
   ggplot2::scale_fill_manual(
@@ -3086,7 +3200,7 @@ figure_s2 <- ggplot2::ggplot() +
   ggplot2::coord_cartesian(
     xlim = c(
       min(c(figure_s2_edges$parent_x, figure_s2_edges$child_x)),
-      max(c(figure_s2_edges$parent_x, figure_s2_edges$child_x)) + figure_s2_width * 0.35
+      figure_s2_label_x + figure_s2_width * 0.35
     ),
     ylim = range(figure_s2_tips$tree_y) + c(-1, 1), clip = "off"
   ) +
@@ -3401,9 +3515,9 @@ make_binary_tree_panel <- function(tip_data, panel_title) {
     label = trait_labels
   )
   ggplot2::ggplot() +
-    ggplot2::geom_segment(data = edges, ggplot2::aes(x = parent_x, xend = parent_x, y = parent_y, yend = child_y, color = order_taxonomy), linewidth = 0.35) +
-    ggplot2::geom_segment(data = edges, ggplot2::aes(x = parent_x, xend = child_x, y = child_y, yend = child_y, color = order_taxonomy), linewidth = 0.35) +
-    ggplot2::geom_segment(data = tip_extensions, ggplot2::aes(x = x, xend = xend, y = y, yend = yend, color = order_taxonomy), linewidth = 0.35) +
+    ggplot2::geom_segment(data = edges, ggplot2::aes(x = parent_x, xend = parent_x, y = parent_y, yend = child_y, color = order_taxonomy), linewidth = 0.525) +
+    ggplot2::geom_segment(data = edges, ggplot2::aes(x = parent_x, xend = child_x, y = child_y, yend = child_y, color = order_taxonomy), linewidth = 0.525) +
+    ggplot2::geom_segment(data = tip_extensions, ggplot2::aes(x = x, xend = xend, y = y, yend = yend), inherit.aes = FALSE, color = "grey80", linewidth = 0.3, linetype = "dashed") +
     ggplot2::geom_tile(data = dplyr::filter(tile_data, trait == "B12 synthesis"), ggplot2::aes(x = tile_x, y = tree_y, fill = value), width = tile_width, height = 0.92) +
     ggplot2::scale_fill_manual(values = c(Below = "grey88", Above = "#2166ac"), limits = c("Below", "Above"), name = "B12 synthesis", drop = FALSE, guide = ggplot2::guide_legend(ncol = 1, order = 2)) +
     ggnewscale::new_scale_fill() +
@@ -3507,17 +3621,93 @@ ggplot2::ggsave(figure_s8_pdf, figure_s8, width = 7.1, height = 3.28, device = g
 figure_s8
 ```
 
-## Figures S9-S13
+## Figure S9
 
-```{r assemble-figures-s9-s13, fig.width=7.1, fig.height=3.7, out.width="100%"}
-facet_theme <- ggplot2::theme_bw(base_size = 7) + ggplot2::theme(panel.grid.minor = ggplot2::element_blank(), strip.text = ggplot2::element_text(size = 6), legend.position = "none")
-facet_scale <- ggplot2::scale_color_manual(values = c(blank = "grey55", `NA` = "grey55", trait_group_colors), drop = FALSE)
+```{r assemble-figure-s9, fig.width=4.97, fig.height=6.448, out.width="100%"}
+figure_s9_theme <- ggplot2::theme_bw(base_size = 10) +
+  ggplot2::theme(
+    panel.grid.minor = ggplot2::element_blank(), legend.position = "top",
+    legend.title = ggplot2::element_blank(), legend.key.height = grid::unit(10, "pt"),
+    legend.margin = ggplot2::margin(0, 0, 2, 0),
+    plot.margin = ggplot2::margin(5.5, 5.5, 5.5, 5.5)
+  )
 
-figure_s9 <- ggplot2::ggplot(figure_s9_data, ggplot2::aes(killed_proportion_source_od600, adjusted_live_stain, color = trait_group2, group = interaction(experiment_name, biological_replicate))) +
-  ggplot2::geom_line(linewidth = 0.45) + ggplot2::geom_point(size = 0.8) + facet_scale +
-  ggplot2::facet_wrap(ggplot2::vars(trait_group2_strain_label), ncol = 8, drop = FALSE) +
-  ggplot2::labs(x = "Killed proportion × source-culture OD600 at 0 min", y = "Dead cell stain (DCS1) fluorescence") + facet_theme
+# Ordered rows ensure blanks are drawn after every non-blank point. Keeping
+# one point layer lets ggMarginal use all observations in both densities.
+figure_s9a <- ggplot2::ggplot(figure_s9a_data, ggplot2::aes(raw_od600, dead_stain, color = sample_type)) +
+  ggplot2::geom_point(size = 1.3, alpha = 0.65) +
+  ggplot2::scale_color_manual(values = c("Non-blank" = "black", "Blank" = "red")) +
+  ggplot2::scale_x_log10(
+    limits = c(0.03, 1), breaks = c(0.03, 0.1, 0.3, 1),
+    labels = c("0.03", "0.1", "0.3", "1"), expand = c(0, 0)
+  ) +
+  ggplot2::scale_y_log10(breaks = 10^(3:5), labels = scales::label_log(base = 10)) +
+  ggplot2::labs(x = "Raw OD600", y = "Raw dead-stain fluorescence") +
+  figure_s9_theme +
+  ggplot2::theme(
+    legend.position = "inside", legend.position.inside = c(0.025, 0.98),
+    legend.justification = c(0, 1), legend.direction = "horizontal",
+    legend.background = ggplot2::element_blank()
+  )
 
+# ggMarginal estimates densities from the transformed ggplot point data:
+# densities are fitted in log10 coordinates, separately normalized by group.
+# size = 8 makes each marginal one eighth of the main plotting dimension.
+figure_s9a_marginals <- ggExtra::ggMarginal(
+  figure_s9a, type = "density", margins = "both", size = 8,
+  groupColour = TRUE, groupFill = TRUE, alpha = 0.35, linewidth = 0.3
+)
+
+figure_s9b <- ggplot2::ggplot(
+  figure_s9b_data,
+  ggplot2::aes(
+    killed_cell_od600, fluorescence_increment, color = trait_group2,
+    group = interaction(experiment_name, biological_replicate, strain_id)
+  )
+) +
+  ggplot2::geom_line(linewidth = 0.4, alpha = 0.65) +
+  ggplot2::geom_point(size = 1, alpha = 0.8) +
+  ggplot2::scale_x_log10(
+    breaks = c(0.01, 0.03, 0.1, 0.3), labels = c("0.01", "0.03", "0.1", "0.3")
+  ) +
+  ggplot2::scale_y_log10(breaks = 10^(1:5), labels = scales::label_log(base = 10)) +
+  ggplot2::scale_color_manual(
+    values = c(retainer = "#7570b3", provider = "#e7298a", reclaimer = "#d95f02"),
+    breaks = c("retainer", "provider", "reclaimer"),
+    labels = c("Retainer", "Provider", "Reclaimer"), drop = FALSE
+  ) +
+  ggplot2::labs(
+    x = "Killed proportion × adjusted\nsource-culture OD600 at 0 min",
+    y = "DCS1 fluorescence increase\nrelative to 0% killed"
+  ) +
+  figure_s9_theme +
+  ggplot2::theme(
+    legend.position = "inside", legend.position.inside = c(0.025, 0.98),
+    legend.justification = c(0, 1), legend.direction = "vertical",
+    legend.background = ggplot2::element_blank()
+  )
+
+# Narrow only B's data panel by 8%, keeping its left edge and text sizes.
+figure_s9b_grob <- ggplot2::ggplotGrob(figure_s9b)
+figure_s9b_panel_column <- figure_s9b_grob$layout$l[figure_s9b_grob$layout$name == "panel"]
+figure_s9b_grob$widths[figure_s9b_panel_column] <- grid::unit(0.92, "null")
+figure_s9b_grob <- gtable::gtable_add_cols(figure_s9b_grob, grid::unit(0.08, "null"), pos = -1)
+
+figure_s9 <- cowplot::plot_grid(
+  figure_s9a_marginals, figure_s9b_grob, ncol = 1, rel_heights = c(1.08, 1),
+  labels = c("A", "B"), label_size = 11, label_fontface = "bold",
+  label_x = 0, label_y = 1, hjust = 0, vjust = 1
+)
+figure_s9_png <- file.path(output_dir, "FigureS9.png")
+figure_s9_pdf <- file.path(output_dir, "FigureS9.pdf")
+ggplot2::ggsave(figure_s9_png, figure_s9, width = 4.97, height = 6.448, dpi = 400, bg = "white")
+ggplot2::ggsave(figure_s9_pdf, figure_s9, width = 4.97, height = 6.448, device = grDevices::cairo_pdf)
+figure_s9
+```
+
+## Figure S10
+
+```{r assemble-figure-s10, fig.width=3.64, fig.height=4.2, out.width="100%"}
 figure_s10_data <- figure_s10_data |>
   dplyr::mutate(
     b12_trait_group2 = factor(b12_trait_group2, levels = trait_group_levels)
@@ -3573,50 +3763,263 @@ figure_s10 <- ggplot2::ggplot(
   ggplot2::theme_bw(base_size = 11) +
   ggplot2::theme(legend.position = "none", panel.grid.minor = ggplot2::element_blank())
 
-figure_s11 <- ggplot2::ggplot(figure_s11_data, ggplot2::aes(sample_time_minute / 60, color = trait_group2, group = strain_id)) +
+figure_s10_png <- file.path(output_dir, "FigureS10.png")
+figure_s10_pdf <- file.path(output_dir, "FigureS10.pdf")
+ggplot2::ggsave(figure_s10_png, figure_s10, width = 3.64, height = 4.2, dpi = 400, bg = "white")
+ggplot2::ggsave(figure_s10_pdf, figure_s10, width = 3.64, height = 4.2, device = grDevices::cairo_pdf)
+figure_s10
+```
+
+## Figure S11
+
+```{r assemble-figure-s11, fig.width=3.408, fig.height=2.24, out.width="100%"}
+# Pair the common pre-addition culture with its no-glucose, 500 pM B12 uptake
+# endpoint by strain, experiment, and biological replicate before averaging.
+s11_od <- read_figure_csv(figure_s15_baseline_path)
+s11_keys <- c("strain_id", "experiment_name", "biological_replicate")
+s11_initial <- s11_od |>
+  dplyr::filter(experiment_type == "live_dead_source", sample_time_minute == 0,
+                killed_proportion == 0, added_glucose_mM_C == 0, added_b12_pM == 0) |>
+  dplyr::select(dplyr::all_of(s11_keys), od600_t0 = adjusted_od600)
+s11_final <- s11_od |>
+  dplyr::filter(experiment_type == "release_and_uptake", sample_time_minute == 240,
+                added_glucose_mM_C == 0, added_b12_pM == 500) |>
+  dplyr::select(dplyr::all_of(s11_keys), od600_t4 = adjusted_od600)
+stopifnot(!anyDuplicated(s11_initial[s11_keys]), !anyDuplicated(s11_final[s11_keys]))
+s11_traits <- read_figure_csv(figure1_data_inputs[["strain_summary"]]) |>
+  dplyr::select(strain_id, b12_trait_group2)
+s11_pairs <- dplyr::inner_join(s11_initial, s11_final, by = s11_keys) |>
+  dplyr::left_join(s11_traits, by = "strain_id") |>
+  dplyr::filter(strain_id != "blank", b12_trait_group2 %in% trait_group_levels,
+                is.finite(od600_t0), is.finite(od600_t4))
+s11_strains <- s11_pairs |>
+  dplyr::group_by(strain_id, b12_trait_group2) |>
+  dplyr::summarise(od600_t0 = mean(od600_t0), od600_t4 = mean(od600_t4),
+                   n_cultures = dplyr::n(), .groups = "drop") |>
+  dplyr::mutate(b12_trait_group2 = factor(b12_trait_group2, levels = trait_group_levels))
+stopifnot(all(s11_strains$n_cultures == 4L), !anyDuplicated(s11_strains$strain_id))
+s11_data <- s11_strains |>
+  tidyr::pivot_longer(c(od600_t0, od600_t4), names_to = "time", values_to = "adjusted_od600") |>
+  dplyr::mutate(time = factor(time, levels = c("od600_t0", "od600_t4")))
+s11_statistics <- s11_strains |>
+  dplyr::group_by(b12_trait_group2) |>
+  dplyr::summarise(n_strains = dplyr::n(),
+                   mean_initial_od600 = mean(od600_t0), mean_final_od600 = mean(od600_t4),
+                   mean_change_od600 = mean(od600_t4 - od600_t0),
+                   median_change_od600 = stats::median(od600_t4 - od600_t0),
+                   p_value = exact_signed_rank_p(od600_t4 - od600_t0), .groups = "drop") |>
+  dplyr::mutate(p_label = sprintf("p = %.3f", p_value),
+                 segment_y = max(s11_data$adjusted_od600) * 1.10,
+                 label_y = max(s11_data$adjusted_od600) * 1.14)
+figure_s11 <- ggplot2::ggplot(s11_data, ggplot2::aes(time, adjusted_od600)) +
+  ggplot2::geom_boxplot(width = 0.55, outlier.shape = NA, fill = "grey88",
+                        color = "grey30", linewidth = 0.4) +
+  ggplot2::geom_line(ggplot2::aes(group = strain_id), color = "grey45",
+                     linewidth = 0.3, alpha = 0.28) +
+  ggplot2::geom_point(ggplot2::aes(color = b12_trait_group2),
+                      position = ggplot2::position_jitter(width = 0.08, height = 0, seed = 20260821),
+                      size = 1.15, alpha = 0.82) +
+  ggplot2::geom_segment(data = s11_statistics,
+                        ggplot2::aes(x = 1, xend = 2, y = segment_y, yend = segment_y),
+                        inherit.aes = FALSE, linewidth = 0.35) +
+  ggplot2::geom_text(data = s11_statistics,
+                     ggplot2::aes(x = 1.5, y = label_y, label = p_label),
+                     inherit.aes = FALSE, size = 2.15, vjust = 0) +
+  ggplot2::scale_color_manual(values = trait_group_colors, breaks = trait_group_levels) +
+  ggplot2::scale_x_discrete(labels = c(od600_t0 = "0", od600_t4 = "4")) +
+  ggplot2::scale_y_continuous(limits = c(0, max(s11_data$adjusted_od600) * 1.25)) +
+  ggplot2::facet_wrap(ggplot2::vars(b12_trait_group2), nrow = 1) +
+  ggplot2::labs(x = "Time (hours)", y = "Adjusted OD600") +
+  ggplot2::theme_bw(base_size = 8) +
+  ggplot2::theme(legend.position = "none", panel.grid.minor = ggplot2::element_blank(),
+                  plot.title = ggplot2::element_text(size = 8, face = "bold", hjust = 0.5),
+                  strip.text = ggplot2::element_text(size = 6.5))
+figure_s11_png <- file.path(output_dir, "FigureS11.png")
+figure_s11_pdf <- file.path(output_dir, "FigureS11.pdf")
+ggplot2::ggsave(figure_s11_png, figure_s11, width = 3.408, height = 2.24, dpi = 400, bg = "white")
+ggplot2::ggsave(figure_s11_pdf, figure_s11, width = 3.408, height = 2.24, device = grDevices::cairo_pdf)
+utils::write.csv(s11_pairs, file.path(output_dir, "FigureS11_source.csv"), row.names = FALSE)
+utils::write.csv(s11_statistics, file.path(output_dir, "FigureS11_paired_wilcoxon_statistics.csv"), row.names = FALSE)
+figure_s11
+```
+
+## Figures S12-S14: kinetic-model structure comparison
+
+```{r assemble-figures-s12-s14, fig.width=7.1, fig.height=3.73, out.width="100%"}
+model_comparison_dir <- file.path(
+  project_dir, "data", "processed", "figure_source_data",
+  "b12_release_uptake_death_modeling"
+)
+model_comparison_paths <- c(
+  uptake = file.path(model_comparison_dir, "supp_model_structures_uptake_dynamics.csv"),
+  mix = file.path(model_comparison_dir, "supp_model_structures_live_dead_mix.csv"),
+  release = file.path(model_comparison_dir, "supp_model_structures_release_dynamics.csv")
+)
+stop_if_missing(model_comparison_paths)
+model_comparison_data <- lapply(model_comparison_paths, read_figure_csv)
+model_structure_levels <- c("first_order", "quota_saturation")
+model_structure_labels <- c(
+  first_order = "First-order",
+  quota_saturation = "Quota"
+)
+model_structure_colors <- c(
+  first_order = "#D73027",
+  quota_saturation = "#2166AC"
+)
+prepare_model_comparison <- function(dat) {
+  dat |>
+    dplyr::mutate(
+      model_structure = factor(model_structure, levels = model_structure_levels),
+      b12_trait_group2 = dplyr::if_else(
+        strain_id == "blank", "blank", as.character(b12_trait_group2)
+      )
+    ) |>
+    dplyr::left_join(
+      supplementary_strain_ordinals,
+      by = c("strain_id", "b12_trait_group2" = "trait_group2")
+    ) |>
+    dplyr::filter(!is.na(trait_group2_strain_ordinal)) |>
+    dplyr::mutate(
+      b12_trait_group2 = factor(
+        b12_trait_group2, levels = c("blank", trait_group_levels)
+      ),
+      trait_group2_strain_label = factor(
+        dplyr::if_else(
+          strain_id == "blank", "blank",
+          paste(b12_trait_group2, trait_group2_strain_ordinal, sep = " no.")
+        ),
+        levels = supplementary_facet_levels
+      )
+    )
+}
+model_comparison_data <- lapply(model_comparison_data, prepare_model_comparison)
+model_comparison_theme <- ggplot2::theme_bw(base_size = 7) +
+  ggplot2::theme(
+    panel.grid.minor = ggplot2::element_blank(),
+    strip.text = ggplot2::element_text(size = 6),
+    legend.position = "right"
+  )
+model_comparison_scale <- ggplot2::scale_color_manual(
+  values = model_structure_colors,
+  breaks = model_structure_levels,
+  labels = model_structure_labels,
+  name = "Model structure"
+)
+
+s12_empirical <- model_comparison_data$uptake |>
+  dplyr::distinct(trait_group2_strain_label, strain_id, sample_time_minute, empirical_mean_b12, empirical_sd_b12)
+figure_s12 <- ggplot2::ggplot(
+  model_comparison_data$uptake,
+  ggplot2::aes(sample_time_minute / 60, model_pred, color = model_structure, group = model_structure)
+) +
   ggplot2::geom_hline(yintercept = 500, linetype = "dashed", color = "grey50") +
-  ggplot2::geom_line(ggplot2::aes(y = model_pred), linewidth = 0.55) +
-  ggplot2::geom_errorbar(ggplot2::aes(ymin = b12_ymin, ymax = b12_ymax), width = 0, alpha = 0.3, linewidth = 0.25) +
-  ggplot2::geom_point(ggplot2::aes(y = empirical_mean_b12), size = 0.9) + facet_scale +
+  ggplot2::geom_line(linewidth = 0.6, alpha = 0.8, na.rm = TRUE) +
+  ggplot2::geom_errorbar(
+    data = s12_empirical,
+    ggplot2::aes(
+      x = sample_time_minute / 60,
+      ymin = empirical_mean_b12 - empirical_sd_b12,
+      ymax = empirical_mean_b12 + empirical_sd_b12
+    ),
+    inherit.aes = FALSE, width = 0, color = "grey40", linewidth = 0.25
+  ) +
+  ggplot2::geom_point(
+    data = s12_empirical,
+    ggplot2::aes(sample_time_minute / 60, empirical_mean_b12),
+    inherit.aes = FALSE, color = "black", size = 0.85
+  ) +
+  model_comparison_scale +
   ggplot2::facet_wrap(ggplot2::vars(trait_group2_strain_label), ncol = 8, drop = FALSE) +
-  ggplot2::labs(x = "Time (hours)", y = "Extracellular B12 (pM)") + facet_theme
+  ggplot2::labs(x = "Time (hours)", y = "Extracellular B12 (pM)") +
+  model_comparison_theme
 
-figure_s12 <- ggplot2::ggplot(figure_s12_data, ggplot2::aes(killed_proportion, color = trait_group2, group = strain_id)) +
+s13_empirical <- model_comparison_data$mix |>
+  dplyr::distinct(trait_group2_strain_label, strain_id, killed_proportion, empirical_fraction_mean, empirical_fraction_sd)
+figure_s13 <- ggplot2::ggplot(
+  model_comparison_data$mix,
+  ggplot2::aes(killed_proportion, predicted_fraction, color = model_structure, group = model_structure)
+) +
   ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey65") +
-  ggplot2::geom_line(ggplot2::aes(y = predicted_b12_frac), linewidth = 0.55) +
-  ggplot2::geom_errorbar(ggplot2::aes(ymin = b12_frac_ymin, ymax = b12_frac_ymax), width = 0.015, alpha = 0.25, linewidth = 0.25) +
-  ggplot2::geom_point(ggplot2::aes(y = b12_frac_mean), size = 0.9) + facet_scale +
+  ggplot2::geom_line(linewidth = 0.6, alpha = 0.8, na.rm = TRUE) +
+  ggplot2::geom_errorbar(
+    data = s13_empirical,
+    ggplot2::aes(
+      x = killed_proportion,
+      ymin = empirical_fraction_mean - empirical_fraction_sd,
+      ymax = empirical_fraction_mean + empirical_fraction_sd
+    ),
+    inherit.aes = FALSE, width = 0.015, color = "grey40", linewidth = 0.25
+  ) +
+  ggplot2::geom_point(
+    data = s13_empirical,
+    ggplot2::aes(killed_proportion, empirical_fraction_mean),
+    inherit.aes = FALSE, color = "black", size = 0.85
+  ) +
+  model_comparison_scale +
   ggplot2::scale_x_continuous(breaks = c(0, 0.5, 1)) +
-  ggplot2::scale_y_continuous(limits = c(NA, 1.5)) + ggplot2::facet_wrap(ggplot2::vars(trait_group2_strain_label), ncol = 8, drop = FALSE) +
-  ggplot2::labs(x = "Fraction killed: f", y = "Extracellular B12 fraction: B(1,f)/b") + facet_theme
-
-figure_s13 <- ggplot2::ggplot(figure_s13_model, ggplot2::aes(sample_time_minute / 60, color = trait_group2, group = interaction(strain_id, added_glucose_mM_C_factor))) +
-  ggplot2::geom_line(ggplot2::aes(y = model_pred, linetype = added_glucose_mM_C_factor), linewidth = 0.55) +
-  ggplot2::geom_errorbar(data = figure_s13_empirical, ggplot2::aes(ymin = mean_b12 - sd_b12, ymax = mean_b12 + sd_b12), width = 0, alpha = 0.25, linewidth = 0.25) +
-  ggplot2::geom_point(data = figure_s13_empirical, ggplot2::aes(y = mean_b12, shape = added_glucose_mM_C_factor), size = 1) +
-  facet_scale + ggplot2::scale_shape_manual(values = c(`0` = 16, `10` = 17), name = "Glucose (mM C)") +
-  ggplot2::scale_linetype_manual(values = c(`0` = "solid", `10` = "dashed"), name = "Glucose (mM C)") +
+  ggplot2::scale_y_continuous(limits = c(NA, 1.5)) +
   ggplot2::facet_wrap(ggplot2::vars(trait_group2_strain_label), ncol = 8, drop = FALSE) +
-  ggplot2::labs(x = "Time (hours)", y = "Extracellular B12 (pM)") + facet_theme +
-  ggplot2::theme(legend.position = "right") + ggplot2::guides(color = "none")
+  ggplot2::labs(x = "Fraction killed: f", y = "Extracellular B12 fraction: B(1,f)/b") +
+  model_comparison_theme
 
-supp_plots <- list(S9 = figure_s9, S10 = figure_s10, S11 = figure_s11, S12 = figure_s12, S13 = figure_s13)
-supp_widths <- c(S9 = 7.1, S10 = 3.64, S11 = 7.1, S12 = 7.1, S13 = 7.1)
-supp_heights <- c(S9 = 3.76, S10 = 4.2, S11 = 3.73, S12 = 3.73, S13 = 3.33)
-for (nm in names(supp_plots)) {
-  png_path <- file.path(output_dir, paste0("Figure", nm, ".png")); pdf_path <- file.path(output_dir, paste0("Figure", nm, ".pdf"))
-  ggplot2::ggsave(png_path, supp_plots[[nm]], width = supp_widths[[nm]], height = supp_heights[[nm]], dpi = 400, bg = "white")
-  ggplot2::ggsave(pdf_path, supp_plots[[nm]], width = supp_widths[[nm]], height = supp_heights[[nm]], device = grDevices::cairo_pdf)
+s14_empirical <- model_comparison_data$release |>
+  dplyr::distinct(
+    trait_group2_strain_label, strain_id, added_glucose_mM_C, sample_time_minute,
+    empirical_mean_b12, empirical_sd_b12
+  )
+figure_s14 <- ggplot2::ggplot(
+  model_comparison_data$release,
+  ggplot2::aes(
+    sample_time_minute / 60, model_pred, color = model_structure,
+    linetype = factor(added_glucose_mM_C),
+    group = interaction(model_structure, added_glucose_mM_C)
+  )
+) +
+  ggplot2::geom_line(linewidth = 0.6, alpha = 0.8, na.rm = TRUE) +
+  ggplot2::geom_errorbar(
+    data = s14_empirical,
+    ggplot2::aes(
+      x = sample_time_minute / 60,
+      ymin = empirical_mean_b12 - empirical_sd_b12,
+      ymax = empirical_mean_b12 + empirical_sd_b12,
+      group = added_glucose_mM_C
+    ),
+    inherit.aes = FALSE, width = 0, color = "grey40", linewidth = 0.25
+  ) +
+  ggplot2::geom_point(
+    data = s14_empirical,
+    ggplot2::aes(
+      sample_time_minute / 60, empirical_mean_b12,
+      shape = factor(added_glucose_mM_C)
+    ),
+    inherit.aes = FALSE, color = "black", size = 0.9
+  ) +
+  model_comparison_scale +
+  ggplot2::scale_linetype_manual(values = c(`0` = "solid", `10` = "dashed"), name = "Glucose (mM C)") +
+  ggplot2::scale_shape_manual(values = c(`0` = 16, `10` = 17), name = "Glucose (mM C)") +
+  ggplot2::facet_wrap(ggplot2::vars(trait_group2_strain_label), ncol = 8, drop = FALSE) +
+  ggplot2::labs(x = "Time (hours)", y = "Extracellular B12 (pM)") +
+  model_comparison_theme
+
+model_comparison_plots <- list(S12 = figure_s12, S13 = figure_s13, S14 = figure_s14)
+model_comparison_heights <- c(S12 = 3.73, S13 = 3.73, S14 = 3.33)
+for (nm in names(model_comparison_plots)) {
+  png_path <- file.path(output_dir, paste0("Figure", nm, ".png"))
+  pdf_path <- file.path(output_dir, paste0("Figure", nm, ".pdf"))
+  ggplot2::ggsave(png_path, model_comparison_plots[[nm]], width = 7.1, height = model_comparison_heights[[nm]], dpi = 400, bg = "white")
+  ggplot2::ggsave(pdf_path, model_comparison_plots[[nm]], width = 7.1, height = model_comparison_heights[[nm]], device = grDevices::cairo_pdf)
   assign(paste0("figure_", tolower(nm), "_png"), png_path)
   assign(paste0("figure_", tolower(nm), "_pdf"), pdf_path)
 }
+figure_s12
 figure_s13
+figure_s14
 ```
 
-## Figure S14
+## Figure S15
 
-```{r assemble-figure-s14, fig.width=7.1, fig.height=5.28, out.width="100%"}
-figure_s14_theme <- ggplot2::theme_bw(base_size = 8) +
+```{r assemble-figure-s15, fig.width=7.1, fig.height=5.28, out.width="100%"}
+figure_s15_theme <- ggplot2::theme_bw(base_size = 8) +
   ggplot2::theme(
     plot.title = ggplot2::element_text(
       size = 8, face = "bold", hjust = 0.5,
@@ -3630,11 +4033,30 @@ figure_s14_theme <- ggplot2::theme_bw(base_size = 8) +
     plot.margin = ggplot2::margin(3, 3, 3, 3)
   )
 
-make_figure_s14_paired_plot <- function(
+make_figure_s15_paired_plot <- function(
   dat, statistics, value_column, y_label, panel_title,
-  log_y = FALSE, reference_y = NULL
+  log_y = FALSE, reference_y = NULL, baseline = NULL
 ) {
   value_column <- rlang::ensym(value_column)
+  line_data <- dat
+  bracket_left <- 1
+  bracket_right <- 2
+  if (!is.null(baseline)) {
+    baseline$added_glucose_mM_C <- "pre_culture"
+    dat$added_glucose_mM_C <- as.character(dat$added_glucose_mM_C)
+    dat <- dplyr::bind_rows(baseline, dat)
+    dat$added_glucose_mM_C <- factor(
+      dat$added_glucose_mM_C, levels = c("pre_culture", "0", "10")
+    )
+    dat$b12_trait_group2 <- factor(dat$b12_trait_group2, levels = trait_group_levels)
+    line_data <- dplyr::filter(dat, added_glucose_mM_C != "pre_culture")
+    bracket_left <- 2
+    bracket_right <- 3
+    maximum <- max(dplyr::pull(dat, !!value_column), na.rm = TRUE)
+    statistics$segment_y <- maximum * 1.10
+    statistics$label_y <- maximum * 1.14
+    statistics$upper_y <- maximum * 1.25
+  }
   p <- ggplot2::ggplot(
     dat,
     ggplot2::aes(x = added_glucose_mM_C, y = !!value_column)
@@ -3645,6 +4067,7 @@ make_figure_s14_paired_plot <- function(
     ) +
     ggplot2::geom_line(
       ggplot2::aes(group = strain_id),
+      data = line_data,
       color = "grey45", linewidth = 0.3, alpha = 0.28
     ) +
     ggplot2::geom_point(
@@ -3656,12 +4079,12 @@ make_figure_s14_paired_plot <- function(
     ) +
     ggplot2::geom_segment(
       data = statistics,
-      ggplot2::aes(x = 1, xend = 2, y = segment_y, yend = segment_y),
+      ggplot2::aes(x = bracket_left, xend = bracket_right, y = segment_y, yend = segment_y),
       inherit.aes = FALSE, linewidth = 0.35, color = "black"
     ) +
     ggplot2::geom_text(
       data = statistics,
-      ggplot2::aes(x = 1.5, y = label_y, label = p_label),
+      ggplot2::aes(x = (bracket_left + bracket_right) / 2, y = label_y, label = p_label),
       inherit.aes = FALSE, size = 2.15, vjust = 0, color = "black"
     ) +
     ggplot2::scale_color_manual(
@@ -3672,7 +4095,14 @@ make_figure_s14_paired_plot <- function(
       x = "Added glucose (mM C)", y = y_label,
       title = panel_title, subtitle = NULL, color = NULL
     ) +
-    figure_s14_theme
+    figure_s15_theme
+
+  if (!is.null(baseline)) {
+    p <- p + ggplot2::scale_x_discrete(
+      limits = c("pre_culture", "0", "10"),
+      labels = c(pre_culture = "Pre-\nculture", `0` = "0", `10` = "10")
+    )
+  }
 
   if (!is.null(reference_y)) {
     p <- p + ggplot2::geom_hline(
@@ -3687,25 +4117,25 @@ make_figure_s14_paired_plot <- function(
   }
 }
 
-figure_s14a <- make_figure_s14_paired_plot(
-  figure_s14_data$A, figure_s14_statistics$A, mean_b12,
+figure_s15a <- make_figure_s15_paired_plot(
+  figure_s15_data$A, figure_s15_statistics$A, mean_b12,
   "Extracellular B12 (pM)", "No B12 added"
 )
-figure_s14b <- make_figure_s14_paired_plot(
-  figure_s14_data$B, figure_s14_statistics$B, mean_b12,
+figure_s15b <- make_figure_s15_paired_plot(
+  figure_s15_data$B, figure_s15_statistics$B, mean_b12,
   "Extracellular B12 (pM)", "500pM B12 added", reference_y = 500
 )
-figure_s14c <- make_figure_s14_paired_plot(
-  figure_s14_data$C, figure_s14_statistics$C, mean_measurement,
-  "Adjusted OD600", "No B12 added"
+figure_s15c <- make_figure_s15_paired_plot(
+  figure_s15_data$C, figure_s15_statistics$C, mean_measurement,
+  "Adjusted OD600", "No B12 added", baseline = figure_s15c_baseline
 )
-figure_s14d <- make_figure_s14_paired_plot(
-  figure_s14_data$D, figure_s14_statistics$D, mean_measurement,
+figure_s15d <- make_figure_s15_paired_plot(
+  figure_s15_data$D, figure_s15_statistics$D, mean_measurement,
   "Dead cell fluorescence", "No B12 added", log_y = TRUE
 )
 
-figure_s14e <- ggplot2::ggplot(
-  figure_s14_data$E,
+figure_s15e <- ggplot2::ggplot(
+  figure_s15_data$E,
   ggplot2::aes(
     x = mean_filtrate_b12_per_adjusted_live_stain_glucose_0,
     y = mean_filtrate_b12_per_adjusted_live_stain_glucose_10,
@@ -3727,10 +4157,10 @@ figure_s14e <- ggplot2::ggplot(
     y = "EC-B12/Dead cell signal\n when glucose = 10mM C",
     title = "No B12 added", subtitle = NULL, color = NULL
   ) +
-  figure_s14_theme
+  figure_s15_theme
 
-figure_s14f <- ggplot2::ggplot(
-  figure_s14_data$F,
+figure_s15f <- ggplot2::ggplot(
+  figure_s15_data$F,
   ggplot2::aes(
     x = b12_trait_group2, y = glucose_10_over_0,
     color = b12_trait_group2, fill = b12_trait_group2
@@ -3747,7 +4177,7 @@ figure_s14f <- ggplot2::ggplot(
     width = 0.08, height = 0, size = 1.15, alpha = 0.82
   ) +
   ggplot2::geom_text(
-    data = figure_s14f_tests,
+    data = figure_s15f_tests,
     ggplot2::aes(
       x = b12_trait_group2, y = annotation_y, label = p_label
     ),
@@ -3767,12 +4197,12 @@ figure_s14f <- ggplot2::ggplot(
     y = "EC-B12/Dead cell signal\n when Glucose = 10mM/0mM",
     title = "No B12 added", subtitle = NULL, color = NULL, fill = NULL
   ) +
-  figure_s14_theme
+  figure_s15_theme
 
-figure_s14 <- patchwork::wrap_plots(
-  A = figure_s14a, B = figure_s14b, C = figure_s14c,
-  D = figure_s14d, E = figure_s14e, F = figure_s14f,
-  design = "ABC\nDEF"
+figure_s15 <- patchwork::wrap_plots(
+  A = figure_s15a, B = figure_s15b, C = figure_s15c,
+  D = figure_s15d, E = figure_s15e, F = figure_s15f,
+  design = "ABC\nDEF", widths = c(0.32, 0.32, 0.36)
 ) +
   patchwork::plot_annotation(tag_levels = "A") &
   ggplot2::theme(
@@ -3780,36 +4210,379 @@ figure_s14 <- patchwork::wrap_plots(
     plot.tag.position = c(0, 1)
   )
 
-figure_s14_png <- file.path(output_dir, "FigureS14.png")
-figure_s14_pdf <- file.path(output_dir, "FigureS14.pdf")
+figure_s15_png <- file.path(output_dir, "FigureS15.png")
+figure_s15_pdf <- file.path(output_dir, "FigureS15.pdf")
 ggplot2::ggsave(
-  figure_s14_png, figure_s14, width = 7.1, height = 5.28,
+  figure_s15_png, figure_s15, width = 7.1, height = 5.28,
   dpi = 400, bg = "white"
 )
 ggplot2::ggsave(
-  figure_s14_pdf, figure_s14, width = 7.1, height = 5.28,
+  figure_s15_pdf, figure_s15, width = 7.1, height = 5.28,
   device = grDevices::cairo_pdf
 )
 utils::write.csv(
-  dplyr::bind_rows(figure_s14_statistics, .id = "panel"),
-  file.path(output_dir, "FigureS14_paired_wilcoxon_statistics.csv"),
+  dplyr::bind_rows(figure_s15_statistics, .id = "panel"),
+  file.path(output_dir, "FigureS15_paired_wilcoxon_statistics.csv"),
   row.names = FALSE
 )
-figure_s14
+figure_s15
 ```
 
-## Figure S15
+## Figure S16: first-order rates across the selected strains
 
-```{r assemble-figure-s15, fig.width=5.2, fig.height=3.6, out.width="85%"}
-figure_s15_fill_limit <- max(
-  abs(figure_s15_data$signed_minus_log10_bh_p), na.rm = TRUE
+```{r assemble-figure-s16, fig.width=7.1, fig.height=5.8, out.width="100%"}
+s16_modeling_dir <- file.path(
+  project_dir, "data", "processed", "b12_release_uptake_death", "modeling"
 )
-if (!is.finite(figure_s15_fill_limit) || figure_s15_fill_limit == 0) {
-  figure_s15_fill_limit <- 1
+s16_inputs <- c(
+  results = file.path(
+    project_dir, "data", "processed", "b12_release_uptake_death",
+    "b12_results_b12_release_uptake_death.csv"
+  ),
+  uptake = file.path(
+    s16_modeling_dir, "b12_fits_uptake_b12_release_uptake_death.csv"
+  ),
+  release = file.path(
+    s16_modeling_dir, "b12_fits_release_b12_release_uptake_death.csv"
+  )
+)
+stop_if_missing(s16_inputs)
+s16_results <- read_figure_csv(s16_inputs[["results"]])
+s16_uptake_fits <- read_figure_csv(s16_inputs[["uptake"]])
+s16_release_fits <- read_figure_csv(s16_inputs[["release"]])
+s16_geometric_mean <- function(x) {
+  x <- x[is.finite(x) & x > 0]
+  if (!length(x)) return(NA_real_)
+  exp(mean(log(x)))
+}
+s16_selected_strains <- s16_results |>
+  dplyr::filter(
+    experiment_type == "release_and_uptake", strain_id != "blank"
+  ) |>
+  dplyr::distinct(strain_id) |>
+  dplyr::pull(strain_id)
+s16_rates <- s16_uptake_fits |>
+  dplyr::filter(
+    strain_id %in% s16_selected_strains, added_glucose_mM_C == 0
+  ) |>
+  dplyr::group_by(strain_id) |>
+  dplyr::summarise(
+    uptake_rate_k = s16_geometric_mean(k_per_od600),
+    n_uptake_fits = sum(is.finite(k_per_od600) & k_per_od600 > 0),
+    .groups = "drop"
+  ) |>
+  dplyr::left_join(
+    s16_release_fits |>
+      dplyr::filter(
+        strain_id %in% s16_selected_strains, added_glucose_mM_C == 0
+      ) |>
+      dplyr::group_by(strain_id) |>
+      dplyr::summarise(
+        release_rate_r = s16_geometric_mean(r_per_od600),
+        n_release_fits = sum(is.finite(r_per_od600) & r_per_od600 > 0),
+        .groups = "drop"
+      ),
+    by = "strain_id"
+  ) |>
+  dplyr::left_join(
+    tip_metadata |>
+      dplyr::transmute(
+        strain_id = tip_label,
+        b12_trait_group2 = as.character(b12_trait_group2),
+        total_b12_gm,
+        uptake_b12_mean,
+        filtrate_proportion_gm
+      ),
+    by = "strain_id"
+  ) |>
+  dplyr::left_join(
+    supplementary_strain_ordinals,
+    by = c("strain_id", "b12_trait_group2" = "trait_group2")
+  ) |>
+  dplyr::left_join(
+    figure_s1_metadata |>
+      dplyr::filter(!is.na(strain_id), strain_id != "") |>
+      dplyr::group_by(strain_id) |>
+      dplyr::summarise(
+        broad_environment = dplyr::first(broad_environment),
+        .groups = "drop"
+      ),
+    by = "strain_id"
+  ) |>
+  dplyr::mutate(
+    broad_environment = dplyr::coalesce(broad_environment, "Unresolved"),
+    trait_group_ordinal_label = paste(
+      b12_trait_group2, paste0("no.", trait_group2_strain_ordinal)
+    )
+  )
+utils::write.csv(
+  s16_rates,
+  file.path(
+    supplementary_source_dir, "b12_release_uptake_death_modeling",
+    "FigureS16_first_order_rates_source.csv"
+  ),
+  row.names = FALSE
+)
+
+if (length(s16_selected_strains) != 23L) {
+  stop("Figure S16 expected 23 selected non-blank strains; found ", length(s16_selected_strains))
+}
+if (!all(s16_selected_strains %in% tree$tip.label)) {
+  stop("Figure S16 selected strains are missing from the GTDB tree: ",
+       paste(setdiff(s16_selected_strains, tree$tip.label), collapse = ", "))
 }
 
-figure_s15 <- ggplot2::ggplot(
-  figure_s15_data,
+s16_tree <- ape::keep.tip(tree, s16_selected_strains)
+s16_tree_data <- make_tree_plot_data_figure1(s16_tree, tip_metadata)
+s16_tips <- s16_tree_data$tips |>
+  dplyr::transmute(
+    strain_id = tip_label,
+    tree_x = s16_tree_data$tree_y_max - tip_y,
+    tree_y = x
+  ) |>
+  dplyr::left_join(s16_rates, by = "strain_id")
+s16_edges <- s16_tree_data$edges |>
+  dplyr::rename(
+    old_parent_x = parent_x, old_parent_y = parent_y,
+    old_child_x = child_x, old_child_y = child_y
+  ) |>
+  dplyr::transmute(
+    parent_x = s16_tree_data$tree_y_max - old_parent_y,
+    parent_y = old_parent_x,
+    child_x = s16_tree_data$tree_y_max - old_child_y,
+    child_y = old_child_x,
+    branch_class
+  )
+s16_class_levels <- names(gtdb_class_colors)[
+  names(gtdb_class_colors) %in%
+    unique(c(s16_tree_data$tips$class_taxonomy, s16_edges$branch_class))
+]
+s16_tree_width <- diff(range(c(s16_edges$parent_x, s16_edges$child_x), na.rm = TRUE))
+s16_tile_width <- s16_tree_width * 0.055
+s16_tile_gap <- s16_tile_width * 0.35
+s16_tile_positions <- max(s16_tips$tree_x, na.rm = TRUE) +
+  s16_tile_gap + s16_tile_width * c(0.5, 1.85, 3.2, 4.55, 5.9, 8.75, 10.1)
+s16_strain_id_x <- s16_tile_positions[7] + s16_tree_width * 0.11
+s16_trait_ordinal_x <- s16_strain_id_x + s16_tree_width * 0.22
+s16_environment_levels <- names(figure_s2_environment_colors)[
+  names(figure_s2_environment_colors) %in% unique(s16_tips$broad_environment)
+]
+s16_tip_extensions <- s16_tips |>
+  dplyr::transmute(
+    x = tree_x, xend = s16_tile_positions[1] - s16_tile_width / 2,
+    y = tree_y, yend = tree_y
+  )
+s16_headers <- data.frame(
+  x = c(s16_tile_positions, s16_strain_id_x, s16_trait_ordinal_x),
+  y = max(s16_tips$tree_y) + 1.6,
+  label = c(
+    "Broad environment", "Total B12", "B12 uptake", "EC-B12 fraction",
+    "Trait group", "Release rate: r", "Uptake rate: k", "Strain ID",
+    "Trait group + ordinal"
+  )
+)
+
+figure_s16 <- ggplot2::ggplot() +
+  ggplot2::geom_segment(
+    data = s16_edges,
+    ggplot2::aes(
+      x = parent_x, xend = parent_x, y = parent_y, yend = child_y,
+      color = branch_class
+    ), linewidth = 0.825
+  ) +
+  ggplot2::geom_segment(
+    data = s16_edges,
+    ggplot2::aes(
+      x = parent_x, xend = child_x, y = child_y, yend = child_y,
+      color = branch_class
+    ), linewidth = 0.825
+  ) +
+  ggplot2::scale_color_manual(
+    values = gtdb_class_colors, breaks = s16_class_levels,
+    limits = s16_class_levels, drop = FALSE,
+    name = "GTDB-Tk class",
+    guide = ggplot2::guide_legend(order = 1)
+  ) +
+  ggplot2::geom_segment(
+    data = s16_tip_extensions,
+    ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+    inherit.aes = FALSE, color = "grey80", linewidth = 0.35,
+    linetype = "dashed"
+  ) +
+  ggnewscale::new_scale_fill() +
+  ggplot2::geom_tile(
+    data = s16_tips,
+    ggplot2::aes(
+      x = s16_tile_positions[1], y = tree_y,
+      fill = factor(
+        broad_environment,
+        levels = c("soil", "freshwater", "marine", "Unresolved")
+      )
+    ),
+    width = s16_tile_width, height = 0.9
+  ) +
+  ggplot2::scale_fill_manual(
+    values = figure_s2_environment_colors,
+    breaks = s16_environment_levels, limits = s16_environment_levels,
+    drop = FALSE,
+    name = "Broad environment",
+    guide = ggplot2::guide_legend(order = 2)
+  ) +
+  ggnewscale::new_scale_fill() +
+  ggplot2::geom_tile(
+    data = s16_tips,
+    ggplot2::aes(x = s16_tile_positions[2], y = tree_y, fill = total_b12_gm),
+    width = s16_tile_width, height = 0.9
+  ) +
+  ggplot2::scale_fill_gradientn(
+    colors = c("#f7fbff", "#6baed6", "#08519c"), trans = "log10",
+    limits = c(5, 2000), breaks = c(10, 100, 1000),
+    labels = c("10", "100", "1000"), na.value = "grey90",
+    name = "Total B12 (pM)",
+    guide = ggplot2::guide_colorbar(
+      order = 3, barheight = grid::unit(2.2, "lines"),
+      barwidth = grid::unit(0.65, "lines")
+    )
+  ) +
+  ggnewscale::new_scale_fill() +
+  ggplot2::geom_tile(
+    data = s16_tips,
+    ggplot2::aes(x = s16_tile_positions[3], y = tree_y, fill = uptake_b12_mean),
+    width = s16_tile_width, height = 0.9
+  ) +
+  ggplot2::scale_fill_gradient2(
+    low = "#2166ac", mid = "white", high = "#b2182b", midpoint = 0,
+    na.value = "grey90", name = "B12 uptake (pM)",
+    guide = ggplot2::guide_colorbar(
+      order = 4, barheight = grid::unit(2.2, "lines"),
+      barwidth = grid::unit(0.65, "lines")
+    )
+  ) +
+  ggnewscale::new_scale_fill() +
+  ggplot2::geom_tile(
+    data = s16_tips,
+    ggplot2::aes(
+      x = s16_tile_positions[4], y = tree_y,
+      fill = filtrate_proportion_gm
+    ),
+    width = s16_tile_width, height = 0.9
+  ) +
+  ggplot2::scale_fill_gradientn(
+    colors = c("#ffffd9", "#41b6c4", "#081d58"),
+    trans = "log10", name = "EC-B12 fraction", na.value = "grey90",
+    guide = ggplot2::guide_colorbar(
+      order = 5, barheight = grid::unit(2.2, "lines"),
+      barwidth = grid::unit(0.65, "lines")
+    )
+  ) +
+  ggnewscale::new_scale_fill() +
+  ggplot2::geom_tile(
+    data = s16_tips,
+    ggplot2::aes(
+      x = s16_tile_positions[5], y = tree_y,
+      fill = factor(b12_trait_group2, levels = trait_group_levels)
+    ),
+    width = s16_tile_width, height = 0.9
+  ) +
+  ggplot2::scale_fill_manual(
+    values = trait_group_colors, breaks = trait_group_levels,
+    limits = trait_group_levels, drop = FALSE, name = "Trait group",
+    na.value = "grey88", guide = ggplot2::guide_legend(order = 6)
+  ) +
+  ggnewscale::new_scale_fill() +
+  ggplot2::geom_tile(
+    data = s16_tips,
+    ggplot2::aes(x = s16_tile_positions[6], y = tree_y, fill = release_rate_r),
+    width = s16_tile_width, height = 0.9
+  ) +
+  ggplot2::scale_fill_gradientn(
+    colors = c("#f7fcf5", "#74c476", "#006d2c"),
+    trans = "log10", na.value = "grey88",
+    name = expression(atop("Release rate: " * italic(r), pM ~ OD[600]^{-1} ~ min^{-1})),
+    guide = ggplot2::guide_colorbar(
+      order = 7, barheight = grid::unit(2.2, "lines"),
+      barwidth = grid::unit(0.65, "lines")
+    )
+  ) +
+  ggnewscale::new_scale_fill() +
+  ggplot2::geom_tile(
+    data = s16_tips,
+    ggplot2::aes(x = s16_tile_positions[7], y = tree_y, fill = uptake_rate_k),
+    width = s16_tile_width, height = 0.9
+  ) +
+  ggplot2::scale_fill_gradientn(
+    colors = c("#fff5f0", "#fb6a4a", "#99000d"),
+    trans = "log10", na.value = "grey88",
+    name = expression(atop("Uptake rate: " * italic(k), OD[600]^{-1} ~ min^{-1})),
+    guide = ggplot2::guide_colorbar(
+      order = 8, barheight = grid::unit(2.2, "lines"),
+      barwidth = grid::unit(0.65, "lines")
+    )
+  ) +
+  ggplot2::geom_text(
+    data = s16_tips,
+    ggplot2::aes(x = s16_strain_id_x, y = tree_y, label = strain_id),
+    inherit.aes = FALSE, hjust = 0.5, size = 2.25, color = "grey15"
+  ) +
+  ggplot2::geom_text(
+    data = s16_tips,
+    ggplot2::aes(
+      x = s16_trait_ordinal_x, y = tree_y,
+      label = trait_group_ordinal_label
+    ),
+    inherit.aes = FALSE, hjust = 0.5, size = 2.25, color = "grey15"
+  ) +
+  ggplot2::geom_text(
+    data = s16_headers,
+    ggplot2::aes(x = x, y = y, label = label),
+    inherit.aes = FALSE, angle = 45, hjust = 0, size = 2.4
+  ) +
+  ggplot2::coord_cartesian(
+    xlim = c(
+      min(s16_edges$parent_x),
+      s16_trait_ordinal_x + s16_tree_width * 0.34
+    ),
+    ylim = c(min(s16_tips$tree_y) - 0.8, max(s16_tips$tree_y) + 5),
+    clip = "off"
+  ) +
+  ggplot2::theme_void(base_size = 8) +
+  ggplot2::theme(
+    legend.position = "right",
+    legend.box = "vertical",
+    legend.title = ggplot2::element_text(face = "bold", size = 7),
+    legend.text = ggplot2::element_text(size = 6.5),
+    legend.key.height = grid::unit(0.6, "lines"),
+    legend.spacing.y = grid::unit(0.08, "lines"),
+    # Add 0.213 inches (3% of the 7.1-inch canvas) to the right margin,
+    # shifting the complete legend block left while preserving its layout.
+    plot.margin = ggplot2::margin(t = 5.5, r = 20.8, b = 5.5, l = 5.5)
+  )
+
+figure_s16_png <- file.path(output_dir, "FigureS16.png")
+figure_s16_pdf <- file.path(output_dir, "FigureS16.pdf")
+ggplot2::ggsave(
+  figure_s16_png, figure_s16, width = 7.1, height = 5.8,
+  dpi = 400, bg = "white"
+)
+ggplot2::ggsave(
+  figure_s16_pdf, figure_s16, width = 7.1, height = 5.8,
+  device = grDevices::cairo_pdf
+)
+figure_s16
+```
+
+## Figure S17
+
+```{r assemble-figure-s17, fig.width=5.2, fig.height=3.6, out.width="85%"}
+figure_s17_fill_limit <- max(
+  abs(figure_s17_data$signed_minus_log10_bh_p), na.rm = TRUE
+)
+if (!is.finite(figure_s17_fill_limit) || figure_s17_fill_limit == 0) {
+  figure_s17_fill_limit <- 1
+}
+
+figure_s17 <- ggplot2::ggplot(
+  figure_s17_data,
   ggplot2::aes(
     x = method,
     y = display_label,
@@ -3824,7 +4597,7 @@ figure_s15 <- ggplot2::ggplot(
   ggplot2::scale_fill_gradient2(
     low = "#B2182B", mid = "white", high = "#2166AC",
     midpoint = 0,
-    limits = c(-figure_s15_fill_limit, figure_s15_fill_limit),
+    limits = c(-figure_s17_fill_limit, figure_s17_fill_limit),
     na.value = "grey88"
   ) +
   ggplot2::labs(
@@ -3842,30 +4615,30 @@ figure_s15 <- ggplot2::ggplot(
     plot.margin = ggplot2::margin(4, 4, 4, 4)
   )
 
-figure_s15_png <- file.path(output_dir, "FigureS15.png")
-figure_s15_pdf <- file.path(output_dir, "FigureS15.pdf")
+figure_s17_png <- file.path(output_dir, "FigureS17.png")
+figure_s17_pdf <- file.path(output_dir, "FigureS17.pdf")
 ggplot2::ggsave(
-  figure_s15_png, figure_s15, width = 5.2, height = 3.6,
+  figure_s17_png, figure_s17, width = 5.2, height = 3.6,
   dpi = 400, bg = "white"
 )
 ggplot2::ggsave(
-  figure_s15_pdf, figure_s15, width = 5.2, height = 3.6,
+  figure_s17_pdf, figure_s17, width = 5.2, height = 3.6,
   device = grDevices::cairo_pdf
 )
-figure_s15
+figure_s17
 ```
 
-## Figure S16
+## Figure S18
 
-```{r assemble-figure-s16, fig.width=7.1, fig.height=5.12, out.width="100%"}
-figure_s16_colors <- c(
+```{r assemble-figure-s18, fig.width=7.1, fig.height=5.12, out.width="100%"}
+figure_s18_colors <- c(
   blank = "grey35",
   HTWP4 = "#0072B2",
   JW50603 = "#D55E00",
   OTU4908 = "#009E73"
 )
 
-figure_s16a <- figure_s16_data |>
+figure_s18a <- figure_s18_data |>
   dplyr::filter(
     .data$assay_type == "E. coli OD600",
     .data$assay_plate_number == 1,
@@ -3885,7 +4658,7 @@ figure_s16a <- figure_s16_data |>
   ) +
   ggplot2::scale_y_log10() +
   ggplot2::scale_color_manual(
-    values = figure_s16_colors, drop = FALSE,
+    values = figure_s18_colors, drop = FALSE,
     name = "B12 non-producer\nstrain spiked in"
   ) +
   ggplot2::facet_grid(. ~ assay_strain) +
@@ -3902,7 +4675,7 @@ figure_s16a <- figure_s16_data |>
     legend.position = "right"
   )
 
-figure_s16b <- figure_s16_data |>
+figure_s18b <- figure_s18_data |>
   dplyr::filter(
     .data$assay_type == "Chlamy fluorescence",
     .data$assay_plate_number == 3,
@@ -3925,7 +4698,7 @@ figure_s16b <- figure_s16_data |>
     labels = scales::label_log()
   ) +
   ggplot2::scale_color_manual(
-    values = figure_s16_colors, drop = FALSE,
+    values = figure_s18_colors, drop = FALSE,
     name = "B12 non-producer\nstrain spiked in"
   ) +
   ggplot2::facet_grid(. ~ assay_strain) +
@@ -3942,7 +4715,7 @@ figure_s16b <- figure_s16_data |>
     legend.position = "right"
   )
 
-figure_s16c <- figure_s16_data |>
+figure_s18c <- figure_s18_data |>
   dplyr::filter(
     .data$assay_type == "E. coli OD600",
     .data$assay_plate_number == 2,
@@ -3987,7 +4760,7 @@ figure_s16c <- figure_s16_data |>
     legend.position = "right"
   )
 
-figure_s16d <- figure_s16_data |>
+figure_s18d <- figure_s18_data |>
   dplyr::filter(
     .data$assay_type == "Chlamy fluorescence",
     .data$assay_plate_number == 4,
@@ -4035,12 +4808,12 @@ figure_s16d <- figure_s16_data |>
     legend.position = "right"
   )
 
-figure_s16_top <- figure_s16a + figure_s16b +
+figure_s18_top <- figure_s18a + figure_s18b +
   patchwork::plot_layout(widths = c(0.66, 0.34), guides = "collect")
-figure_s16_bottom <- figure_s16c + figure_s16d +
+figure_s18_bottom <- figure_s18c + figure_s18d +
   patchwork::plot_layout(widths = c(0.66, 0.34), guides = "collect")
 
-figure_s16 <- (figure_s16_top / figure_s16_bottom) +
+figure_s18 <- (figure_s18_top / figure_s18_bottom) +
   patchwork::plot_layout(heights = c(1, 1)) +
   patchwork::plot_annotation(tag_levels = "A") &
   ggplot2::theme(
@@ -4048,37 +4821,37 @@ figure_s16 <- (figure_s16_top / figure_s16_bottom) +
     plot.tag = ggplot2::element_text(face = "bold", size = 11)
   )
 
-figure_s16_png <- file.path(output_dir, "FigureS16.png")
-figure_s16_pdf <- file.path(output_dir, "FigureS16.pdf")
+figure_s18_png <- file.path(output_dir, "FigureS18.png")
+figure_s18_pdf <- file.path(output_dir, "FigureS18.pdf")
 ggplot2::ggsave(
-  figure_s16_png, figure_s16, width = 7.1, height = 5.12,
+  figure_s18_png, figure_s18, width = 7.1, height = 5.12,
   dpi = 400, bg = "white"
 )
 ggplot2::ggsave(
-  figure_s16_pdf, figure_s16, width = 7.1, height = 5.12,
+  figure_s18_pdf, figure_s18, width = 7.1, height = 5.12,
   device = grDevices::cairo_pdf
 )
-figure_s16
+figure_s18
 ```
 
-## Figure S17
+## Figure S19
 
-```{r assemble-figure-s17, fig.width=7.1, fig.height=4.44, out.width="100%"}
-figure_s17_sample_colors <- c(
+```{r assemble-figure-s19, fig.width=7.1, fig.height=4.44, out.width="100%"}
+figure_s19_sample_colors <- c(
   filtrate = "#F8766D",
   total = "#7CAE00",
   uptake_0hr = "#00BFC4",
   uptake_1hr = "#C77CFF"
 )
-figure_s17_standard_colors <- c(
+figure_s19_standard_colors <- c(
   blank = "grey35",
   HTWP4 = "#0072B2",
   OTU4908 = "#009E73",
   sic1606 = "#D55E00"
 )
 
-figure_s17 <- ggplot2::ggplot(
-  figure_s17_data,
+figure_s19 <- ggplot2::ggplot(
+  figure_s19_data,
   ggplot2::aes(x = x_plot, y = fluorescence)
 ) +
   ggplot2::geom_point(
@@ -4093,8 +4866,8 @@ figure_s17 <- ggplot2::ggplot(
     linewidth = 0.65
   ) +
   ggplot2::scale_color_manual(
-    values = figure_s17_standard_colors,
-    breaks = names(figure_s17_standard_colors),
+    values = figure_s19_standard_colors,
+    breaks = names(figure_s19_standard_colors),
     name = "B12 non-producer\nstrain spiked in",
     guide = ggplot2::guide_legend(order = 1)
   ) +
@@ -4113,8 +4886,8 @@ figure_s17 <- ggplot2::ggplot(
   ) +
   ggplot2::scale_y_log10() +
   ggplot2::scale_fill_manual(
-    values = figure_s17_sample_colors,
-    breaks = names(figure_s17_sample_colors),
+    values = figure_s19_sample_colors,
+    breaks = names(figure_s19_sample_colors),
     labels = c("Filtrate", "Total", "Uptake, 0 h", "Uptake, 1 h"),
     name = "Sample type",
     guide = ggplot2::guide_legend(order = 2)
@@ -4144,17 +4917,17 @@ figure_s17 <- ggplot2::ggplot(
     plot.margin = ggplot2::margin(4, 4, 4, 4)
   )
 
-figure_s17_png <- file.path(output_dir, "FigureS17.png")
-figure_s17_pdf <- file.path(output_dir, "FigureS17.pdf")
+figure_s19_png <- file.path(output_dir, "FigureS19.png")
+figure_s19_pdf <- file.path(output_dir, "FigureS19.pdf")
 ggplot2::ggsave(
-  figure_s17_png, figure_s17, width = 7.1, height = 4.44,
+  figure_s19_png, figure_s19, width = 7.1, height = 4.44,
   dpi = 400, bg = "white"
 )
 ggplot2::ggsave(
-  figure_s17_pdf, figure_s17, width = 7.1, height = 4.44,
+  figure_s19_pdf, figure_s19, width = 7.1, height = 4.44,
   device = grDevices::cairo_pdf
 )
-figure_s17
+figure_s19
 ```
 
 ```{r figures2-5-output-summary}
@@ -4179,7 +4952,9 @@ figure_outputs <- c(
   figure_s14_png, figure_s14_pdf,
   figure_s15_png, figure_s15_pdf,
   figure_s16_png, figure_s16_pdf,
-  figure_s17_png, figure_s17_pdf
+  figure_s17_png, figure_s17_pdf,
+  figure_s18_png, figure_s18_pdf,
+  figure_s19_png, figure_s19_pdf
 )
 data.frame(
   output = c(figure_outputs, table_s1_path, table_s2_path, table_s3_path),

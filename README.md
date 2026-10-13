@@ -22,6 +22,16 @@ complete pipeline in dependency order and writes the figures, supplementary
 Table S1, Table S2, and Table S3 workbooks, and a self-contained HTML notebook under
 `results/compiled_figures/`.
 
+The compiled figure set is Figures 1–5 and S1–S19. Figure S11 compares initial
+and four-hour uptake-assay OD600 without added glucose. Figures S12–S14 compare
+first-order (red) and quota (blue) kinetic models; Figure S16 presents the
+selected-strain phylogeny with first-order release and uptake rates.
+Figures 4B, 5B–C and S16 report OD-specific coefficients, normalized per
+replicate to the mean of initial and final blank-adjusted OD600 before
+geometric averaging. The fitted concentration trajectories are unchanged.
+Figures S17–S19 contain the candidate-gene associations, bioassay comparison,
+and survey fluorescence distributions, respectively. Manuscript Methods and figure captions are maintained separately in Overleaf.
+
 R Markdown requires Pandoc. Running from RStudio uses its bundled Pandoc; a
 command-line installation may need Pandoc added to `PATH`.
 
@@ -43,8 +53,8 @@ The pipeline was validated with R 4.5.1. Required CRAN packages are:
 
 ```r
 install.packages(c(
-  "ape", "broom", "cowplot", "dplyr", "drc", "ggnewscale", "ggplot2",
-  "ggrepel", "knitr", "lme4", "lubridate", "magick", "maps",
+  "ape", "broom", "cowplot", "deSolve", "dplyr", "drc", "ggExtra", "ggnewscale", "ggplot2",
+  "ggrepel", "gtable", "knitr", "lme4", "lubridate", "magick", "maps",
   "minpack.lm", "openxlsx", "patchwork", "phytools", "purrr", "ranger", "rlang",
   "rmarkdown", "scales", "stringr", "tibble", "tidyr"
 ))
@@ -70,6 +80,25 @@ install.packages(c(
 
 See [docs/PIPELINE.md](docs/PIPELINE.md) for dependencies and
 [docs/REPRODUCIBILITY_AUDIT.md](docs/REPRODUCIBILITY_AUDIT.md) for validation.
+
+## Check an existing release
+
+After generating the analysis outputs and notebook, run these checks from the
+repository root. They do not refit models or regenerate figures:
+
+```bash
+Rscript --vanilla tests/test_figure_cohort.R
+Rscript --vanilla tests/test_od_specific_rates.R
+Rscript --vanilla tests/test_quota_solver.R
+python3 tests/check_release_integrity.py
+```
+
+The R checks validate cohort membership, OD-specific rates, and quota solver
+accuracy, conservation and limiting cases. The Python 3
+check uses only its standard library to verify input-manifest checksums,
+the compiled-output inventory, notebook/source consistency, and to flag temporary or exploratory files inside the release.
+Current figure layouts and S9 transformations are documented in
+[R/compiled_figures/README.md](R/compiled_figures/README.md).
 
 ## Licensing
 

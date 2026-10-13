@@ -528,7 +528,7 @@ modeling_dir <- file.path(processed_dir, "modeling")
 
 modeling_parameters_path <- file.path(modeling_dir, "analysis_parameters_b12_release_uptake_death_modeling.csv")
 b12_model_summary_path <- file.path(modeling_dir, "b12_model_summary_b12_release_uptake_death.csv")
-b12_delta_estimates_path <- file.path(modeling_dir, "b12_delta_estimates_b12_release_uptake_death.csv")
+b12_release_initial_estimates_path <- file.path(modeling_dir, "b12_release_initial_b12_estimates_b12_release_uptake_death.csv")
 b12_b_estimates_path <- file.path(modeling_dir, "b12_b_estimates_b12_release_uptake_death.csv")
 b12_fits_uptake_path <- file.path(modeling_dir, "b12_fits_uptake_b12_release_uptake_death.csv")
 b12_fits_release_path <- file.path(modeling_dir, "b12_fits_release_b12_release_uptake_death.csv")
@@ -587,6 +587,15 @@ model_outputs <- build_b12_model_outputs(
   fit_scale = fit_scale
 )
 
+# Normalize only parameter summaries, preserving fitted trajectories and
+# live/dead predictions. Blank controls have no meaningful per-OD rate.
+rate_od_reference <- build_kinetic_od_reference(b12_od_viability_results)
+model_outputs$fits_uptake <- add_od_specific_rates(model_outputs$fits_uptake, rate_od_reference)
+model_outputs$fits_release <- add_od_specific_rates(model_outputs$fits_release, rate_od_reference)
+write.csv(rate_od_reference,
+          file.path(modeling_dir, "b12_rate_od_reference_b12_release_uptake_death.csv"),
+          row.names = FALSE)
+
 write.csv(
   data.frame(
     parameter = c(
@@ -594,6 +603,9 @@ write.csv(
       "group_by_glucose",
       "group_by_replicate",
       "fit_scale",
+      "uptake_initial_condition",
+      "release_initial_condition",
+      "rate_normalization",
       "pipeline_version"
     ),
     value = c(
@@ -601,6 +613,9 @@ write.csv(
       group_by_glucose,
       group_by_replicate,
       fit_scale,
+      "nominal added B12; no release-derived initial offset",
+      "group-specific release_initial_b12_pM from earliest zero-added-B12 observation",
+      "mean of initial and final blank-adjusted OD600; final OD averages 0 and 500 pM wells",
       "ported_from_aps_march_modeling_section_2026_02_06"
     ),
     stringsAsFactors = FALSE
@@ -623,7 +638,7 @@ write.csv(
   row.names = FALSE
 )
 
-write.csv(model_outputs$delta_estimates, b12_delta_estimates_path, row.names = FALSE)
+write.csv(model_outputs$release_initial_b12_estimates, b12_release_initial_estimates_path, row.names = FALSE)
 write.csv(model_outputs$b_estimates, b12_b_estimates_path, row.names = FALSE)
 write.csv(model_outputs$fits_uptake, b12_fits_uptake_path, row.names = FALSE)
 write.csv(model_outputs$fits_release, b12_fits_release_path, row.names = FALSE)
@@ -775,7 +790,7 @@ figure_s9_source <- live_dead_mix |>
       .data$killed_proportion * .data$source_culture_od600_0min
   )
 
-# Figure S14E-F: paired glucose response normalized by live-stain signal.
+# Figure S15E-F: paired glucose response normalized by live-stain signal.
 release_endpoint_cultures <- figure_joined_results |>
   dplyr::filter(
     .data$experiment_type == "release_and_uptake",
@@ -834,7 +849,7 @@ glucose_fold_source <- glucose_pair_source |>
     .data$glucose_10_over_0 > 0
   )
 
-# Figure S14A-D: strain-level four-hour endpoints.
+# Figure S15A-D: strain-level four-hour endpoints.
 endpoint_b12 <- figure_b12_summary |>
   dplyr::filter(
     .data$experiment_type == "release_and_uptake",
@@ -978,7 +993,7 @@ b12_results_path <- file.path("data/processed", section_name, "b12_results_b12_r
 
 b12_summary_path <- file.path("data/processed", section_name, "b12_summary_b12_release_uptake_death.csv")
 
-b12_delta_estimates_path <- file.path("data/processed", section_name, "modeling", "b12_delta_estimates_b12_release_uptake_death.csv")
+b12_release_initial_estimates_path <- file.path("data/processed", section_name, "modeling", "b12_release_initial_b12_estimates_b12_release_uptake_death.csv")
 
 b12_fits_uptake_path <- file.path("data/processed", section_name, "modeling", "b12_fits_uptake_b12_release_uptake_death.csv")
 
@@ -1018,7 +1033,7 @@ b12_results <- read_csv_or_stop(b12_results_path)
 
 b12_summary <- read_csv_or_stop(b12_summary_path)
 
-b12_delta_estimates <- read_csv_or_stop(b12_delta_estimates_path)
+b12_release_initial_estimates <- read_csv_or_stop(b12_release_initial_estimates_path)
 
 b12_fits_uptake <- read_csv_or_stop(b12_fits_uptake_path)
 
@@ -1073,7 +1088,7 @@ order_by_trait_group2 <- function(dat) {
 
 b12_results <- coerce_numeric(b12_results, c("added_b12_pM", "added_glucose_mM_C", "sample_time_minute", "killed_proportion"))
 
-b12_delta_estimates <- coerce_numeric(b12_delta_estimates, c("added_glucose_mM_C", "biological_replicate", "delta"))
+b12_release_initial_estimates <- coerce_numeric(b12_release_initial_estimates, c("added_glucose_mM_C", "biological_replicate", "release_initial_b12_pM"))
 
 b12_fits_uptake <- coerce_numeric(b12_fits_uptake, c("k_per_cell", "k_per_cell_se"))
 
@@ -1104,7 +1119,7 @@ join_by_fit <- intersect(c("strain_id", "added_glucose_mM_C", "experiment_name",
 
 join_by_release <- intersect(c("strain_id", "added_glucose_mM_C", "experiment_name", "biological_replicate"), names(b12_fits_release))
 
-join_by_delta <- intersect(c("strain_id", "added_glucose_mM_C", "experiment_name", "biological_replicate"), names(b12_delta_estimates))
+join_by_release_initial <- intersect(c("strain_id", "added_glucose_mM_C", "experiment_name", "biological_replicate"), names(b12_release_initial_estimates))
 
 geometric_mean <- function(x) {
     x <- x[is.finite(x) & x > 0]
@@ -1294,9 +1309,9 @@ prepare_representative_plot_source <- function(dat, representatives) {
             strain_id, sep = "_"), levels = representative_levels))
 }
 
-uptake_raw <- dplyr::filter(dplyr::mutate(dplyr::left_join(dplyr::left_join(dplyr::filter(b12_results, experiment_type == 
-    "release_and_uptake", added_b12_pM > 0), b12_fits_uptake, by = join_by_fit), b12_delta_estimates, by = join_by_delta, 
-    suffix = c("", "")), model_pred = blank_offset + (added_b12_pM + delta) * exp(-k_per_cell * sample_time_minute), model_type = "uptake_model"), 
+uptake_raw <- dplyr::filter(dplyr::mutate(dplyr::left_join(dplyr::filter(b12_results, experiment_type ==
+    "release_and_uptake", added_b12_pM > 0), b12_fits_uptake, by = join_by_fit),
+    model_pred = blank_offset + added_b12_pM * exp(-k_per_cell * sample_time_minute), model_type = "uptake_model"),
     is.finite(sample_time_minute), is.finite(b12_pm), is.finite(model_pred))
 
 uptake_summary <- summarise_timecourse(uptake_raw)
@@ -1327,8 +1342,8 @@ write.csv(uptake_overlay_trait_group2_strain_facet_01k, file.path(figure_source_
     row.names = FALSE)
 
 release_uptake_raw <- dplyr::filter(dplyr::mutate(dplyr::left_join(dplyr::left_join(dplyr::filter(b12_results, experiment_type == 
-    "release_and_uptake", added_b12_pM == 0), b12_fits_release, by = join_by_release), b12_delta_estimates, by = join_by_delta, 
-    suffix = c("", "")), model_pred = blank_offset + E_per_cell + (added_b12_pM + delta - E_per_cell) * exp(-k_per_cell * 
+    "release_and_uptake", added_b12_pM == 0), b12_fits_release, by = join_by_release), b12_release_initial_estimates, by = join_by_release_initial,
+    suffix = c("", "")), model_pred = blank_offset + E_per_cell + (added_b12_pM + release_initial_b12_pM - E_per_cell) * exp(-k_per_cell *
     sample_time_minute), model_type = "uptake_release_model"), is.finite(sample_time_minute), is.finite(b12_pm), is.finite(model_pred))
 
 release_uptake_summary <- summarise_timecourse(release_uptake_raw)
@@ -1348,13 +1363,25 @@ write.csv(release_uptake_summary, file.path(figure_source_dir, "release_uptake_f
 write.csv(release_uptake_summary_trait_group2_strain_facet_02o, file.path(figure_source_dir, "release_uptake_fit_dynamics_source_02O.csv"), 
     row.names = FALSE)
 
-release_fit_params_replicate <- add_glucose_factor(dplyr::filter(dplyr::mutate(dplyr::filter(tidyr::pivot_longer(dplyr::select(dplyr::mutate(dplyr::left_join(dplyr::left_join(b12_fits_release, 
-    gtdb_metadata, by = "strain_id"), trait_metadata, by = "strain_id"), gtdb_order = dplyr::if_else(is.na(gtdb_order) | 
-    gtdb_order == "", "Unassigned", gtdb_order), b12_trait_group2 = dplyr::if_else(is.na(b12_trait_group2) | b12_trait_group2 == 
-    "", "Unassigned", b12_trait_group2)), strain_id, added_glucose_mM_C, dplyr::any_of(c("experiment_name", "biological_replicate")), 
-    k_per_cell, r_per_cell, E_per_cell, gtdb_order, b12_trait_group2), cols = dplyr::all_of(c("k_per_cell", "r_per_cell", 
-    "E_per_cell")), names_to = "parameter", values_to = "estimate"), is.finite(estimate), estimate > 0), parameter = dplyr::recode(parameter, 
-    k_per_cell = "k", r_per_cell = "r", E_per_cell = "E")), parameter %in% c("k", "r")))
+release_fit_params_replicate <- b12_fits_release |>
+  dplyr::left_join(gtdb_metadata, by = "strain_id") |>
+  dplyr::left_join(trait_metadata, by = "strain_id") |>
+  dplyr::mutate(
+    gtdb_order = dplyr::if_else(is.na(gtdb_order) | gtdb_order == "", "Unassigned", gtdb_order),
+    b12_trait_group2 = dplyr::if_else(
+      is.na(b12_trait_group2) | b12_trait_group2 == "", "Unassigned", b12_trait_group2
+    )
+  ) |>
+  dplyr::select(
+    strain_id, added_glucose_mM_C, experiment_name, biological_replicate,
+    k_per_od600, r_per_od600, gtdb_order, b12_trait_group2
+  ) |>
+  tidyr::pivot_longer(
+    cols = c(k_per_od600, r_per_od600), names_to = "parameter", values_to = "estimate"
+  ) |>
+  dplyr::filter(is.finite(estimate), estimate > 0) |>
+  dplyr::mutate(parameter = dplyr::recode(parameter, k_per_od600 = "k", r_per_od600 = "r")) |>
+  add_glucose_factor()
 
 release_fit_params <- add_glucose_factor(dplyr::summarise(dplyr::group_by(release_fit_params_replicate, strain_id, added_glucose_mM_C, 
     gtdb_order, b12_trait_group2, parameter), estimate = geometric_mean(estimate), n_parameter_fits = dplyr::n(), .groups = "drop"))
@@ -1368,12 +1395,10 @@ release_fit_params_k_glucose0 <- order_by_trait_group2(dplyr::filter(release_fit
 release_fit_params_r_all_glucose <- order_by_trait_group2(dplyr::filter(release_fit_params, strain_id != "blank", parameter == 
     "r", as.character(b12_trait_group2) %in% b12_trait_group2_levels))
 
-release_fit_params_k_r_glucose_geomean <- order_by_trait_group2(dplyr::filter(dplyr::rename(tidyr::pivot_wider(dplyr::filter(dplyr::summarise(dplyr::group_by(dplyr::filter(release_fit_params, 
-    strain_id != "blank", parameter %in% c("k", "r"), added_glucose_mM_C %in% c(0, 10), as.character(b12_trait_group2) %in% 
-        b12_trait_group2_levels, is.finite(estimate), estimate > 0), strain_id, gtdb_order, b12_trait_group2, parameter), 
-    estimate = geometric_mean(estimate), n_glucose_levels = dplyr::n_distinct(added_glucose_mM_C), glucose_values = paste(sort(unique(added_glucose_mM_C)), 
-        collapse = ", "), n_parameter_fits = sum(n_parameter_fits, na.rm = TRUE), .groups = "drop"), n_glucose_levels == 
-    2), names_from = parameter, values_from = c(estimate, n_glucose_levels, glucose_values, n_parameter_fits), names_glue = "{parameter}_{.value}"), 
+release_fit_params_k_r_glucose0 <- order_by_trait_group2(dplyr::filter(dplyr::rename(tidyr::pivot_wider(dplyr::filter(
+    release_fit_params, strain_id != "blank", added_glucose_mM_C == 0, parameter %in% c("k", "r"),
+    as.character(b12_trait_group2) %in% b12_trait_group2_levels, is.finite(estimate), estimate > 0),
+    names_from = parameter, values_from = c(estimate, n_parameter_fits), names_glue = "{parameter}_{.value}"),
     k = k_estimate, r = r_estimate), is.finite(k), is.finite(r)))
 
 release_fit_params_r_by_glucose <- order_by_trait_group2(dplyr::filter(dplyr::rename(tidyr::pivot_wider(dplyr::select(dplyr::filter(release_fit_params_r_all_glucose, 
@@ -1388,7 +1413,7 @@ write.csv(release_fit_params_k_glucose0, file.path(figure_source_dir, "fit_param
 
 write.csv(release_fit_params_r_all_glucose, file.path(figure_source_dir, "fit_parameter_columns_source_03H.csv"), row.names = FALSE)
 
-write.csv(release_fit_params_k_r_glucose_geomean, file.path(figure_source_dir, "fit_parameter_columns_source_03N.csv"), row.names = FALSE)
+write.csv(release_fit_params_k_r_glucose0, file.path(figure_source_dir, "fit_parameter_columns_source_03N.csv"), row.names = FALSE)
 
 write.csv(release_fit_params_r_by_glucose, file.path(figure_source_dir, "fit_parameter_columns_source_03O_03P.csv"), row.names = FALSE)
 
@@ -1545,9 +1570,8 @@ e_by_strain_glucose <- dplyr::summarise(dplyr::group_by(dplyr::filter(b12_fits_r
     c(0, 10), is.finite(E_per_cell), E_per_cell > 0), strain_id, added_glucose_mM_C), E_geomean = geometric_mean(E_per_cell), 
     n_E_fits = dplyr::n(), .groups = "drop")
 
-e_by_strain_all_glucose <- dplyr::filter(dplyr::summarise(dplyr::group_by(e_by_strain_glucose, strain_id), E_geomean = geometric_mean(E_geomean), 
-    n_glucose_levels = dplyr::n_distinct(added_glucose_mM_C), glucose_values = paste(sort(unique(added_glucose_mM_C)), collapse = ", "), 
-    n_E_fits = sum(n_E_fits, na.rm = TRUE), .groups = "drop"), n_glucose_levels == 2)
+e_by_strain_glucose0 <- dplyr::transmute(dplyr::filter(e_by_strain_glucose, added_glucose_mM_C == 0),
+    strain_id, E_geomean, n_E_fits, glucose_values = "0")
 
 prepare_e_fraction_dead_source <- function(e_summary, e_source_label) {
     droplevels(dplyr::filter(dplyr::mutate(dplyr::left_join(trait_survey_fraction_dead_release, e_summary, by = "strain_id"), 
@@ -1558,7 +1582,7 @@ prepare_e_fraction_dead_source <- function(e_summary, e_source_label) {
         filtrate_proportion_gsd > 0, is.finite(E_geomean), E_geomean > 0))
 }
 
-fraction_dead_e_08a <- prepare_e_fraction_dead_source(e_by_strain_all_glucose, "Geometric mean of glucose-specific E values from added_glucose_mM_C = 0 and 10")
+fraction_dead_e_08a <- prepare_e_fraction_dead_source(e_by_strain_glucose0, "Geometric mean across replicate-specific E values at added_glucose_mM_C = 0")
 
 fraction_dead_k_over_r_09b <- dplyr::filter(dplyr::mutate(fraction_dead_e_08a, k_over_r = 1/E_geomean, ec_b12_fraction_per_dead_cell_fraction = filtrate_proportion_gm/dead_proportion_gm), 
     is.finite(k_over_r), k_over_r > 0, is.finite(ec_b12_fraction_per_dead_cell_fraction), ec_b12_fraction_per_dead_cell_fraction > 
@@ -1577,3 +1601,156 @@ write.csv(fraction_dead_k_over_r_09b, file.path(figure_source_dir, "ec_b12_fract
 
 write.csv(regression_stats_09b, file.path(figure_source_dir, "ec_b12_fraction_per_dead_cell_fraction_vs_k_over_r_regression_09B.csv"), 
     row.names = FALSE)
+
+# First-order and quota sources for supplementary Figures S12-S14. These focused
+# fits use the manuscript settings: two-stage, log scale, estimated assay blank,
+# separate glucose/replicate parameters, and a release-specific initial B12
+# condition. Uptake fits do not use that release-derived initial condition.
+source("R/utils/b12_model_structure_comparison.R")
+comparison_inputs <- read_model_inputs(".")
+comparison_specs <- data.frame(
+    model_spec_id = c("supp_first_order", "supp_quota"),
+    pipeline = "two_stage",
+    prediction_model = "release_plus_uptake",
+    fit_scale = "log",
+    blank_offset_treatment = "estimated_blank",
+    glucose_parameterization = "separate",
+    replicate_parameterization = "separate",
+    uptake_structure = c("first_order", "quota_saturation"),
+    release_initial_treatment = "group_specific_fixed",
+    quota_floor_sd_multiplier = c(0, 1),
+    stringsAsFactors = FALSE
+)
+comparison_results <- lapply(seq_len(nrow(comparison_specs)), function(i) {
+    spec <- as.list(comparison_specs[i, ])
+    result <- run_model_spec(
+        spec, comparison_inputs$data, comparison_inputs$blank_offset,
+        comparison_inputs$quota_blank_sd_pM
+    )
+    write_model_spec_result(result, spec, modeling_dir, comparison_inputs$blank_offset)
+    result
+})
+comparison_kinetic <- dplyr::bind_rows(lapply(comparison_results, `[[`, "kinetic_predictions")) |>
+    dplyr::left_join(
+        dplyr::select(comparison_specs, model_spec_id, model_structure = uptake_structure),
+        by = "model_spec_id"
+    )
+comparison_mix <- dplyr::bind_rows(lapply(comparison_results, `[[`, "predictions")) |>
+    dplyr::left_join(
+        dplyr::select(comparison_specs, model_spec_id, model_structure = uptake_structure),
+        by = "model_spec_id"
+    )
+
+comparison_uptake_model <- comparison_kinetic |>
+    dplyr::filter(added_b12_pM > 0, added_glucose_mM_C == 0) |>
+    dplyr::group_by(model_structure, strain_id, b12_trait_group2, sample_time_minute) |>
+    dplyr::summarise(
+        model_pred = mean(fitted_b12, na.rm = TRUE),
+        .groups = "drop"
+    )
+
+comparison_model_structures <- dplyr::distinct(
+    dplyr::select(comparison_specs, model_structure = uptake_structure)
+)
+
+comparison_uptake_empirical <- b12_results |>
+    dplyr::filter(
+        experiment_type == "release_and_uptake", added_b12_pM > 0,
+        added_glucose_mM_C == 0
+    ) |>
+    dplyr::group_by(strain_id, sample_time_minute) |>
+    dplyr::summarise(
+        empirical_mean_b12 = mean(b12_pm, na.rm = TRUE),
+        empirical_sd_b12 = stats::sd(b12_pm, na.rm = TRUE),
+        .groups = "drop"
+    ) |>
+    dplyr::left_join(trait_metadata, by = "strain_id") |>
+    dplyr::mutate(
+        b12_trait_group2 = dplyr::if_else(strain_id == "blank", "blank", b12_trait_group2)
+    ) |>
+    tidyr::crossing(comparison_model_structures)
+
+comparison_uptake_source <- comparison_uptake_empirical |>
+    dplyr::left_join(
+        comparison_uptake_model,
+        by = c("model_structure", "strain_id", "b12_trait_group2", "sample_time_minute")
+    )
+
+comparison_mix_model <- comparison_mix |>
+    dplyr::filter(added_glucose_mM_C == 0) |>
+    dplyr::group_by(model_structure, strain_id, b12_trait_group2, experiment_name, biological_replicate) |>
+    dplyr::mutate(
+        predicted_full_kill = stats::median(predicted_b12[killed_proportion == 1], na.rm = TRUE),
+        predicted_fraction = predicted_b12 / predicted_full_kill
+    ) |>
+    dplyr::ungroup() |>
+    dplyr::group_by(model_structure, strain_id, b12_trait_group2, killed_proportion) |>
+    dplyr::summarise(
+        predicted_fraction = mean(predicted_fraction, na.rm = TRUE),
+        .groups = "drop"
+    )
+
+comparison_mix_empirical <- b12_results |>
+    dplyr::filter(experiment_type == "live_dead_mix", added_glucose_mM_C == 0) |>
+    dplyr::group_by(strain_id, experiment_name, biological_replicate) |>
+    dplyr::mutate(
+        empirical_full_kill = stats::median(b12_pm[killed_proportion == 1], na.rm = TRUE),
+        empirical_fraction = b12_pm / empirical_full_kill
+    ) |>
+    dplyr::ungroup() |>
+    dplyr::group_by(strain_id, killed_proportion) |>
+    dplyr::summarise(
+        empirical_fraction_mean = mean(empirical_fraction, na.rm = TRUE),
+        empirical_fraction_sd = stats::sd(empirical_fraction, na.rm = TRUE),
+        .groups = "drop"
+    ) |>
+    dplyr::left_join(trait_metadata, by = "strain_id") |>
+    dplyr::mutate(
+        b12_trait_group2 = dplyr::if_else(strain_id == "blank", "blank", b12_trait_group2)
+    ) |>
+    tidyr::crossing(comparison_model_structures)
+
+comparison_mix_source <- comparison_mix_empirical |>
+    dplyr::left_join(
+        comparison_mix_model,
+        by = c("model_structure", "strain_id", "b12_trait_group2", "killed_proportion")
+    )
+
+comparison_release_model <- comparison_kinetic |>
+    dplyr::filter(added_b12_pM == 0, added_glucose_mM_C %in% c(0, 10)) |>
+    dplyr::group_by(model_structure, strain_id, b12_trait_group2, added_glucose_mM_C, sample_time_minute) |>
+    dplyr::summarise(
+        model_pred = mean(fitted_b12, na.rm = TRUE),
+        .groups = "drop"
+    )
+
+comparison_release_empirical <- b12_results |>
+    dplyr::filter(
+        experiment_type == "release_and_uptake", added_b12_pM == 0,
+        added_glucose_mM_C %in% c(0, 10)
+    ) |>
+    dplyr::group_by(strain_id, added_glucose_mM_C, sample_time_minute) |>
+    dplyr::summarise(
+        empirical_mean_b12 = mean(b12_pm, na.rm = TRUE),
+        empirical_sd_b12 = stats::sd(b12_pm, na.rm = TRUE),
+        .groups = "drop"
+    ) |>
+    dplyr::left_join(trait_metadata, by = "strain_id") |>
+    dplyr::mutate(
+        b12_trait_group2 = dplyr::if_else(strain_id == "blank", "blank", b12_trait_group2)
+    ) |>
+    tidyr::crossing(comparison_model_structures)
+
+comparison_release_source <- comparison_release_empirical |>
+    dplyr::left_join(
+        comparison_release_model,
+        by = c(
+            "model_structure", "strain_id", "b12_trait_group2",
+            "added_glucose_mM_C", "sample_time_minute"
+        )
+    )
+
+write.csv(comparison_uptake_source, file.path(figure_source_dir, "supp_model_structures_uptake_dynamics.csv"), row.names = FALSE)
+write.csv(comparison_mix_source, file.path(figure_source_dir, "supp_model_structures_live_dead_mix.csv"), row.names = FALSE)
+write.csv(comparison_release_source, file.path(figure_source_dir, "supp_model_structures_release_dynamics.csv"), row.names = FALSE)
+write.csv(comparison_specs, file.path(modeling_dir, "supplementary_model_structure_specifications.csv"), row.names = FALSE)

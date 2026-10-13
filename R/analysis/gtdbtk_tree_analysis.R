@@ -5,6 +5,8 @@
 # Bacillati/Pseudomonadati split, and a trait-complete tree is exported for the
 # classification and compiled-figure stages.
 
+source("R/utils/b12_figure_cohort.R")
+
 summary_path <- file.path("data/raw/gtdbtk", "gtdbtk.bac120.summary.tsv")
 tree_path <- file.path("data/raw/gtdbtk", "gtdbtk.bac120.study_genomes.tree")
 genome_map_path <- file.path(
@@ -199,7 +201,7 @@ if (anyDuplicated(taxonomy$strain_id)) stop("GTDB taxonomy is not unique by stra
 utils::write.csv(taxonomy, taxonomy_path, row.names = FALSE, na = "")
 
 tree <- ape::read.tree(tree_path)
-tree$tip.label[tree$tip.label == "KC61126"] <- "KC611216"
+tree$tip.label <- canonical_b12_strain_id(tree$tip.label)
 if (anyDuplicated(tree$tip.label)) stop("The study-genome tree has duplicated tip labels.")
 
 trait_columns <- c(

@@ -2,6 +2,9 @@ layout_metadata_path <- "data/raw/metadata_strains/bacterial_strain_metadata.csv
 plate_reader_dir <- "data/raw/growth_dynamics_b12_methionine/20251208_bacteria_b12_methionine_2"
 output_dir <- "data/intermediate/growth_dynamics_b12_methionine"
 
+# 200 uL in 96-well plates with a well area of 35 mm^2; normalize to 1 cm.
+od_path_length_cm <- 200 / 35 / 10
+
 metadata_output_path <- file.path(output_dir, "metadata_b12_methionine_2.csv")
 od_long_output_path <- file.path(output_dir, "od600_long_b12_methionine_2.csv")
 joined_output_path <- file.path(output_dir, "od600_with_metadata_b12_methionine_2.csv")
@@ -169,6 +172,9 @@ process_plate_reader_file <- function(file) {
 
 od600_long <- dplyr::bind_rows(lapply(plate_reader_files, process_plate_reader_file)) |>
   dplyr::mutate(
+    od600_plate_read = OD600nm,
+    od_path_length_cm = od_path_length_cm,
+    OD600nm = od600_plate_read / od_path_length_cm,
     growth_hours = as.numeric(difftime(date_time, min(date_time), units = "hours"))
   )
 

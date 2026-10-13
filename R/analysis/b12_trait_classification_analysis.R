@@ -5,6 +5,8 @@
 # partition is constructed with k equal to the number of order blocks, and each
 # mutually exclusive test fold is evaluated exactly once.
 
+source("R/utils/b12_figure_cohort.R")
+
 ko_matrix_path <- file.path("data/raw/genome_pipeline_nf_core", "ko_count_matrix.tsv")
 phenotype_path <- file.path(
   "data/processed/b12_trait_survey", "b12_trait_survey_gwas_phenotypes.csv"
@@ -93,7 +95,7 @@ write_csv <- function(data, path) {
   utils::write.csv(data, path, row.names = FALSE, na = "")
 }
 normalize_join_key <- function(x) {
-  x |>
+  canonical_b12_strain_id(x) |>
     as.character() |>
     stringr::str_replace("\\.(fa|fna|fasta)$", "") |>
     stringr::str_replace("_genomic$", "") |>
@@ -413,6 +415,8 @@ model_input <- model_input |>
       levels = c("below", "above")
     )
   )
+
+model_input <- b12_figure_cohort(model_input)
 
 full_groups <- make_order_holdout_groups(model_input, "full")
 filtered_model_input <- model_input |>
